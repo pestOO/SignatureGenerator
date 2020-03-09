@@ -3,5 +3,6 @@ project(SignatureGenerator)
 
 include("cmake/config.cmake")
 
-add_subdirectory(SignatureGenerator)
 add_subdirectory(libSignatureGenerator)
+add_subdirectory(SignatureGenerator)
+add_subdirectory(tests)
