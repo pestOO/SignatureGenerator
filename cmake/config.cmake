@@ -9,4 +9,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package( Threads )
-find_package(Boost COMPONENTS program_options REQUIRED)
+find_package(Boost COMPONENTS program_options filesystem REQUIRED)
+
+if (${Boost_INCLUDE_DIRS})
+    message(FATAL_ERROR "Boost include dir is missing")
+endif()

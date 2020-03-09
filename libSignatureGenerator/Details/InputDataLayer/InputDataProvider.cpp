@@ -16,6 +16,7 @@
 
 #include <boost/interprocess/file_mapping.hpp>
 #include <boost/interprocess/mapped_region.hpp>
+#include <boost/filesystem.hpp>
 
 #include "Utilities/MessageQueue.h"
 
@@ -58,9 +59,11 @@ class DataChunkImpl : public InputDataProvider::DataChunk {
 InputDataProvider::InputDataProvider(std::string file_path,
                                      const ChunkSizeType chunk_size,
                                      MessageQueue &message_queue)
-    : file_path_(std::move(file_path)),
+    : message_queue_(message_queue),
+      file_path_(std::move(file_path)),
       chunk_size_(chunk_size),
-      message_queue_(message_queue) {
+      file_size_(boost::filesystem::file_size(file_path_)),
+      file_lock_(file_path_.c_str()) {
   assert(chunk_size_ > 0 && "chunk size could not be empty");
 
   if (!file_lock_.try_lock()) {
@@ -68,14 +71,7 @@ InputDataProvider::InputDataProvider(std::string file_path,
   };
 }
 
-void InputDataProvider::SetChunkDataListener(InputDataProvider::ChunkDataListenerWptr listener) {
-  chunk_data_listener_sptr_.swap(listener);
-}
-void InputDataProvider::ClearChunkDataListener() {
-  chunk_data_listener_sptr_.reset();
-}
-
-void InputDataProvider::Run() {
+void InputDataProvider::RunFirstJob() {
   // run the first time to be sure that at least on chunk could be readed
   const auto unique_id = next_chunk_id_.fetch_add(1, std::memory_order_relaxed);
   assert(unique_id == 0 && "The first chunk has 0 id");
@@ -91,32 +87,27 @@ void InputDataProvider::Run() {
         std::string("Could load file chunk, maybe chunk size does not fit RAM, exact error is: ") + exception.what());
   }
 
-  assert((chunk_data_listener_sptr_.use_count() > 0) && "nobody listens InputDataProvider");
-  if (auto listener = chunk_data_listener_sptr_.lock()) {
-    listener->OnDataChunkAvailable(the_first_chunk);
-  } else {
-    throw std::runtime_error("Wrongly integrated InputDataProvider");
-  }
+  assert((!on_data_available_signal_.empty()) && "nobody listens InputDataProvider");
+  on_data_available_signal_(the_first_chunk);
 }
 
 void InputDataProvider::PostJob() {
   const auto unique_id = next_chunk_id_.fetch_add(1, std::memory_order_relaxed);
   assert(unique_id > 0 && "Have we overflow the type?");
   const auto offset = OffsetType(unique_id) * chunk_size_;
-  message_queue_.PostJob(
-      [this, offset, unique_id]() {
-        try {
-          auto chunk_ptr = GenerateNextDataChunk(offset, unique_id);
-          if (auto listener = chunk_data_listener_sptr_.lock()) {
-            listener->OnDataChunkAvailable(chunk_ptr);
+
+  if (GetFileSize() < offset)
+    message_queue_.PostJob(
+        [this, offset, unique_id]() {
+          try {
+            on_data_available_signal_(GenerateNextDataChunk(offset, unique_id));
+          } catch (const std::bad_alloc &exception) {
+            std::cout << "Warning:" << exception.what() << std::endl;
+            std::cout << "Postpone reading job." << std::endl;;
+            return false;
           }
-        } catch (const std::exception &exception) {
-          std::cout << "Warning:" << exception.what() << std::endl;
-          std::cout << "Postpone reading job." << std::endl;;
-          return false;
-        }
-        return true;
-      });
+          return true;
+        });
 }
 
 InputDataProvider::DataChunkSptr InputDataProvider::GenerateNextDataChunk(const UniqueId unique_id,
@@ -126,4 +117,7 @@ InputDataProvider::DataChunkSptr InputDataProvider::GenerateNextDataChunk(const 
 
 void InputDataProvider::ConnectChunkDataListener(const InputDataProvider::DataAvailableSlot &slot) {
   on_data_available_signal_.connect(slot);
+}
+const std::uintmax_t InputDataProvider::GetFileSize() const {
+  return file_size_;
 }

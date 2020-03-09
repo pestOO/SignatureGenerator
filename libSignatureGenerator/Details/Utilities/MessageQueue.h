@@ -21,6 +21,8 @@
 #include <thread>
 #include <vector>
 
+#include "CommonTypes.h"
+
 /**
  * Functional object to be called in the tread.
  * @return true if job was done, otherwise false
@@ -31,16 +33,12 @@
 using Job = std::function<bool()>;
 using JobSptr = std::shared_ptr<Job>;
 
-class BaseMessagesProvider {
- public:
-  virtual std::vector<Job> GenerateJobs(unsigned amount) = 0;
-};
-
-using BaseMessagesProviderSptr = std::shared_ptr<BaseMessagesProvider>;
-using BaseMessagesProviderWptr = std::weak_ptr<BaseMessagesProvider>;
-
 class MessageQueue final {
  public:
+  // -- Typedef and using --
+  using RequestJobsSignal = SignalType<void(int)>;
+  using ProvideJobsSlot = RequestJobsSignal::slot_type;
+  // -- Class members --
   /**
    * Constructs MessageQueue with a pool of ${threads_count} Threads.
    * @param threads_count of threads to be created and warmed up for execution
@@ -49,11 +47,13 @@ class MessageQueue final {
    */
   explicit MessageQueue(unsigned threads_count);
 
-  void Run(BaseMessagesProviderWptr provider);
-
   ~MessageQueue();
 
   void PostJob(Job job);
+
+  void Execute();
+
+  void ConnectJobsProvider(const ProvideJobsSlot& slot);
 
   /**
    * @return Preferred amount of threads to be used for the best CPUs usage.
@@ -63,11 +63,11 @@ class MessageQueue final {
  private:
   void osThreadExecutionLoop();
 
+  void RequestEvents();
+
   void RequestStop();
 
   bool IsRunning() const;
-
-  void RequestEvents();
 
   std::atomic_bool is_running_ = ATOMIC_VAR_INIT(true);
   std::vector<std::thread> thread_pool_;
@@ -76,9 +76,9 @@ class MessageQueue final {
   std::exception_ptr exception_ptr_; // ??
 
   // TBD(EZ): move to lock free queue
-  std::queue<Job> messages_;
+  std::queue <Job> queue_;
 
-  std::weak_ptr<BaseMessagesProvider> provider_;
+  RequestJobsSignal request_jobs_signal_;
 };
 
 #endif  //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_UTILITIES_MESSAGEQUEUE_H_

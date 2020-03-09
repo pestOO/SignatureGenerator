@@ -9,16 +9,15 @@
 
 #include "SignatureGenerator.h"
 
-#include <fstream>
 #include <exception>
 #include <memory>
-#include <iostream>
 
 #include "Utilities/MessageQueue.h"
 
 class ChunkSignatureImpl : public SignatureGenerator::ChunkSignature {
  public:
-  ChunkSignatureImpl(const InputDataProvider::DataChunk &chunk) {
+  ChunkSignatureImpl(const InputDataProvider::DataChunk &chunk)
+      : unique_id_(chunk.GetUniqueId()) {
     boost::crc_32_type crc;
     crc.process_bytes(chunk.GetData(), chunk.GetSize());
     signature_ = crc.checksum();
@@ -40,20 +39,14 @@ class ChunkSignatureImpl : public SignatureGenerator::ChunkSignature {
 SignatureGenerator::SignatureGenerator(MessageQueue &message_queue)
     : message_queue_(message_queue) {}
 
-void SignatureGenerator::SetChunkSignatureListener(SignatureGenerator::ChunkSignatureListenerWptr listener) {
-  chunk_signature_listener_wptr_.swap(listener);
-}
-void SignatureGenerator::ClearChunkSignatureListener() {
-  chunk_signature_listener_wptr_.reset();
-}
-void SignatureGenerator::OnDataChunkAvailable(const InputDataProvider::DataChunkSptr &data_chunk_sptr) {
+void SignatureGenerator::GenerateSignature(const InputDataProvider::DataChunkSptr &data_chunk_sptr) {
   message_queue_.PostJob(
       [data_chunk_sptr, this]() {
-        auto signature = std::make_shared<ChunkSignatureImpl>(*data_chunk_sptr);
-        if (auto listener = chunk_signature_listener_wptr_.lock()) {
-          listener->OnChunkSignatureAvailable(signature);
-        }
+        on_data_available_signal_(std::make_shared<ChunkSignatureImpl>(*data_chunk_sptr));
         return true;
       });
+}
+void SignatureGenerator::ConnectChunkSignatureListener(const ChunkSignaturSlot &slot) {
+  on_data_available_signal_.connect(slot);
 }
 

@@ -1,5 +1,5 @@
 project(SignatureGeneratorApplication)
 
-add_executable(${PROJECT_NAME} main.cpp details/Application.cpp details/Application.h)
+add_executable(${PROJECT_NAME} details/Application.cpp details/Application.h main.cpp)
 
-target_link_libraries(${PROJECT_NAME} Boost::program_options)
+target_link_libraries(${PROJECT_NAME} PRIVATE Boost::program_options libSignatureGenerator)

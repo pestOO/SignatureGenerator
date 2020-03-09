@@ -26,16 +26,16 @@ MessageQueue::MessageQueue(unsigned threads_count) {
 MessageQueue::~MessageQueue() {
   // TBD(EZ): avoid possible UB (access to thread fields by job  after destructor call) by adding public join
   RequestStop();
-  //notify and join
-  condition_var.notify_one();
   for (auto &thread : thread_pool_) {
     thread.join();
   }
 };
 
-void MessageQueue::Run(BaseMessagesProviderWptr provider) {
-  provider_ = provider;
+void MessageQueue::Execute() {
   RequestEvents();
+  for (auto &thread : thread_pool_) {
+    thread.join();
+  }
 }
 
 bool MessageQueue::IsRunning() const {
@@ -43,14 +43,14 @@ bool MessageQueue::IsRunning() const {
 }
 
 void MessageQueue::RequestStop() {
-  provider_.reset();
   is_running_.store(false, std::memory_order_release);
+  condition_var.notify_all();
 }
 
 void MessageQueue::PostJob(Job job) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    messages_.emplace(std::move(job));
+    queue_.emplace(std::move(job));
   }
   condition_var.notify_one();
 }
@@ -60,25 +60,28 @@ void MessageQueue::osThreadExecutionLoop() {
     Job job;
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      if (messages_.empty()) {
-        RequestEvents();
+      if (queue_.empty()) {
+        queue_.emplace([&]() {
+          RequestEvents();
+          return true;
+        });
       }
       condition_var.wait(lock,
                          [this] {
-                           return !messages_.empty() || IsRunning();
+                           return !queue_.empty() || !IsRunning();
                          });
       if (!IsRunning()) {
         return;
       }
-      if (!messages_.empty()) {
-        job = std::move(messages_.front());
-        messages_.pop();
+      if (!queue_.empty()) {
+        job = std::move(queue_.front());
+        queue_.pop();
       }
     }
 
     try {
       if (job) {
-        if (job()) {
+        if (!job()) {
           // post job back till we can handle it
           PostJob(std::move(job));
         };
@@ -93,10 +96,8 @@ void MessageQueue::osThreadExecutionLoop() {
   } while (IsRunning());
 }
 void MessageQueue::RequestEvents() {
-  if (auto provider = provider_.lock()) {
-    const auto amount = thread_pool_.size() * 2;
-    for (auto &message : provider->GenerateJobs(amount)) {
-      messages_.push(message);
-    }
-  }
+  request_jobs_signal_(thread_pool_.size());
+}
+void MessageQueue::ConnectJobsProvider(const ProvideJobsSlot &slot) {
+  request_jobs_signal_.connect(slot);
 }

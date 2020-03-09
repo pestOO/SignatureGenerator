@@ -25,11 +25,9 @@ class MessageQueue;
  *
  * @todo extract InputDataProvider listener and remove dependecey from it
  */
-class SignatureGenerator : public InputDataProvider::ChunkDataListener {
+class SignatureGenerator {
  public:
-  // -- Typedef and using --
   using SignatureType = boost::crc_32_type::value_type;
-
   // -- Support structures and listener of this data --
   /**
    */
@@ -40,40 +38,27 @@ class SignatureGenerator : public InputDataProvider::ChunkDataListener {
     virtual std::size_t GetSignatureSize() const = 0;
     virtual ~ChunkSignature() = default;
   };
+  // -- Typedef and using --
   using ChunkSignatureSptr = std::shared_ptr<ChunkSignature>;
-
-  class ChunkSignatureListener {
-   public:
-    /**
-     *
-     * @param data
-     * @warning do not forget to copy chunk signature smart pointer
-     */
-    virtual void OnChunkSignatureAvailable(const ChunkSignatureSptr &data) = 0;
-  };
-  using ChunkSignatureListenerWptr = std::weak_ptr<ChunkSignatureListener>;
+  using ChunkSignaturSignal = SignalType<void(const ChunkSignatureSptr &)>;
+  using ChunkSignaturSlot = ChunkSignaturSignal::slot_type;
 
   // -- Class members --
   explicit SignatureGenerator(MessageQueue &message_queue);
+
   /**
+   * ChunkSignature
+   */
+  void GenerateSignature(const InputDataProvider::DataChunkSptr &data_chunk_sptr);
+
+  /**
+   * Connects
    * @warning not thread-safe
    */
-  void SetChunkSignatureListener(ChunkSignatureListenerWptr listener);
-
-  /**
-   * @warning not thread-safe
-   */
-  void ClearChunkSignatureListener();
-
- private:
-  /**
-   * @copydoc InputDataProvider::ChunkDataListener::OnDataChunkAvailable(DataChunkSptr)
-   */
-  void OnDataChunkAvailable(const InputDataProvider::DataChunkSptr &data_chunk_sptr) override;
-
+  void ConnectChunkSignatureListener(const ChunkSignaturSlot &slot);
  private:
   MessageQueue &message_queue_;
-  ChunkSignatureListenerWptr chunk_signature_listener_wptr_;
+  ChunkSignaturSignal on_data_available_signal_;
 };
 
 #endif  //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_PROCESSINGLAYER_SIGNATUREGENERATOR_H_

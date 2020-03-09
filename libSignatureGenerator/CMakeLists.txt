@@ -14,13 +14,7 @@ add_library(${PROJECT_NAME} SHARED
         Details/OutputDataLayer/OutputDataConsumer.cpp
         Details/OutputDataLayer/OutputDataConsumer.h
         Library.cpp
-        Library.h )
+        Library.h)
 
-target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
-
-if (${Boost_INCLUDE_DIRS})
-    message(FATAL_ERROR "Boost include dir is missing")
-endif()
-include_directories(${Boost_INCLUDE_DIRS} Details)
-
-#Boost::interprocess
+target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_THREAD_LIBS_INIT} Boost::headers Boost::filesystem)
+target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS} Details)

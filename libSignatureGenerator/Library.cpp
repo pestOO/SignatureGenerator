@@ -19,9 +19,6 @@ Library::Library() {
 
 Library::~Library() {
   // clear components in the reverse order of subscription and construction
-  input_data_provider_->ClearChunkDataListener();
-  signature_generator_->ClearChunkSignatureListener();
-
   output_data_consumer_.reset();
   signature_generator_.reset();
   input_data_provider_.reset();
@@ -34,14 +31,47 @@ void Library::run(const std::string &input_file,
   const auto recommended_amount_of_threads = MessageQueue::RecommendedAmountOfThreads();
   const auto amount_of_threads = recommended_amount_of_threads > 3 ? recommended_amount_of_threads : 3;
 
+  if (chunk_size <= 0) {
+    throw std::invalid_argument("Chunk size could no be zero");
+  };
+  if (input_file.empty()) {
+    throw std::invalid_argument("Input file path could not be empty");
+  };
+  if (out_file.empty()) {
+    throw std::invalid_argument("Output file path could not be empty");
+  };
+
   // Creation order: utilities, from bottom layers to top
   message_queue_ = std::make_shared<MessageQueue>(amount_of_threads);
   input_data_provider_ = std::make_shared<InputDataProvider>(input_file, chunk_size, *message_queue_);
   signature_generator_ = std::make_shared<SignatureGenerator>(*message_queue_);
-  output_data_consumer_ = std::make_shared<OutputDataConsumer>(out_file, *message_queue_);
+  //TBD(EZ): move
+  const auto in_file_size = input_data_provider_->GetFileSize();
+  //TBD(EZ): add getter
+  const auto hash_size = sizeof(SignatureGenerator::SignatureType);
+  const auto out_file_size = (in_file_size % hash_size == 0)
+                             ? in_file_size / hash_size
+                             : (in_file_size + 1) / hash_size;
+  output_data_consumer_ = std::make_shared<OutputDataConsumer>(out_file, out_file_size, *message_queue_);
 
   // subscription order: from high level to low
-  signature_generator_->SetChunkSignatureListener(output_data_consumer_);
-  input_data_provider_->SetChunkDataListener(signature_generator_);
+
+  signature_generator_->ConnectChunkSignatureListener(
+      SignatureGenerator::ChunkSignaturSlot(&OutputDataConsumer::WriteData, output_data_consumer_.get(), _1)
+          .track_foreign(output_data_consumer_));
+
+  input_data_provider_->ConnectChunkDataListener(InputDataProvider::DataAvailableSlot(
+      &SignatureGenerator::GenerateSignature, signature_generator_.get(), _1)
+                                                     .track_foreign(signature_generator_));
+
+  message_queue_->ConnectJobsProvider(MessageQueue::ProvideJobsSlot(
+      [&](int jobs) {
+        for (int i = 0; i < jobs; ++i) {
+          input_data_provider_->PostJob();
+        }
+      }).track_foreign(input_data_provider_));
+
+  input_data_provider_->RunFirstJob();
+  message_queue_->Execute();
 }
 

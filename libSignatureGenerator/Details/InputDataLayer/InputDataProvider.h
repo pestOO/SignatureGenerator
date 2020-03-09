@@ -16,8 +16,6 @@
 #include <queue>
 #include <string>
 
-#include <boost/signals2.hpp>
-
 // TODO(EZ): use Pimpl to hide all implementation in other file or move to utilities
 #define BOOST_DATE_TIME_NO_LIB
 #include <boost/interprocess/sync/file_lock.hpp>
@@ -36,14 +34,9 @@ class MessageQueue;
  */
 class InputDataProvider {
  public:
-  // -- Typedef and using --
-  using OffsetType = std::uint64_t;
-  using DataAvailableSignal = boost::signals2::signal<void (const DataChunkSptr&)> ;
-  using DataAvailableSlot = DataAvailableSignal::slot_type;
-
   // -- Support structures and listener of this data --
   /**
-   *
+   * to move in other file
    */
   class DataChunk {
    public:
@@ -52,55 +45,41 @@ class InputDataProvider {
     virtual UniqueId GetUniqueId() const = 0;
     virtual ~DataChunk() = default;
   };
+  // -- Typedef and using --
   using DataChunkSptr = std::shared_ptr<DataChunk>;
-
-  class ChunkDataListener {
-   public:
-    /**
-     * @param data
-     * @warning do not forget to copy data chunk smart pointer
-     */
-    virtual void OnDataChunkAvailable(const DataChunkSptr& data) = 0;
-  };
-  using ChunkDataListenerWptr = std::weak_ptr<ChunkDataListener>;
-
+  using OffsetType = std::uint64_t;
+  using DataAvailableSignal = SignalType<void(const DataChunkSptr &)>;
+  using DataAvailableSlot = DataAvailableSignal::slot_type;
   // -- Class members --
   InputDataProvider(std::string file_path, ChunkSizeType chunk_size, MessageQueue &message_queue);
 
-  /**
-   * @warning not thread-safe
-   */
-  void SetChunkDataListener(ChunkDataListenerWptr listener);
-
-  /**
-   * @warning not thread-safe
-   */
-  void ClearChunkDataListener();
-
-  void Run();
+  void RunFirstJob();
 
   void PostJob();
 
-
-  void ConnectChunkDataListener(const DataAvailableSlot& slot);
- public:
+  const std::uintmax_t  GetFileSize() const;
+  /**
+   * Connects
+   * @warning not thread-safe
+   */
+  void ConnectChunkDataListener(const DataAvailableSlot &slot);
 
  private:
   DataChunkSptr GenerateNextDataChunk(const UniqueId unique_id, const OffsetType offset);
 
  private:
+  // async working queue
+  MessageQueue &message_queue_;
   //File reading information
   const std::string file_path_;
   const ChunkSizeType chunk_size_;
-  // The next chunk info
-  std::atomic<UniqueId> next_chunk_id_ = ATOMIC_VAR_INIT(0u);
+  const std::uintmax_t file_size_;
+ private:
   // blocks other process to change the file
   boost::interprocess::file_lock file_lock_;
-  // async working queue
-  MessageQueue &message_queue_;
+  // The next chunk info
+  std::atomic<UniqueId> next_chunk_id_ = ATOMIC_VAR_INIT(0u);
   // data consumer
-  ChunkDataListenerWptr chunk_data_listener_sptr_;
- private:
   DataAvailableSignal on_data_available_signal_;
 };
 
