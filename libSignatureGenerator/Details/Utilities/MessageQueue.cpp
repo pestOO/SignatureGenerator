@@ -27,13 +27,16 @@ MessageQueue::~MessageQueue() {
   // TBD(EZ): avoid possible UB (access to thread fields by job  after destructor call) by adding public join
   RequestStop();
   for (auto &thread : thread_pool_) {
-    thread.join();
+    if (thread.joinable()) {
+      thread.join();
+    }
   }
 };
 
 void MessageQueue::Execute() {
   RequestEvents();
   for (auto &thread : thread_pool_) {
+    assert(thread.joinable());
     thread.join();
   }
 }
@@ -49,7 +52,7 @@ void MessageQueue::RequestStop() {
 
 void MessageQueue::PostJob(Job job) {
   {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<MutexType> lock(mutex_);
     queue_.emplace(std::move(job));
   }
   condition_var.notify_one();
@@ -57,33 +60,30 @@ void MessageQueue::PostJob(Job job) {
 
 void MessageQueue::osThreadExecutionLoop() {
   do {
-    Job job;
+    Job next_job;
     {
-      std::unique_lock<std::mutex> lock(mutex_);
+      std::unique_lock<MutexType> lock(mutex_);
       if (queue_.empty()) {
-        queue_.emplace([&]() {
-          RequestEvents();
-          return true;
-        });
-      }
-      condition_var.wait(lock,
-                         [this] {
-                           return !queue_.empty() || !IsRunning();
-                         });
+        if (!RequestEvents()) {
+          // no more data is available - finish thread
+          return;
+        }
+      };
+      condition_var.wait(lock, [this] { return !queue_.empty() || !IsRunning(); });
       if (!IsRunning()) {
         return;
       }
-      if (!queue_.empty()) {
-        job = std::move(queue_.front());
-        queue_.pop();
-      }
+      assert(!queue_.empty());
+      next_job = std::move(queue_.front());
+      queue_.pop();
     }
-
     try {
-      if (job) {
-        if (!job()) {
-          // post job back till we can handle it
-          PostJob(std::move(job));
+      // check functor for validity
+      if (next_job) {
+        // run the job
+        if (!next_job()) {
+          // push failed job back
+          PostJob(std::move(next_job));
         };
       }
     } catch (...) {
@@ -95,8 +95,12 @@ void MessageQueue::osThreadExecutionLoop() {
     }
   } while (IsRunning());
 }
-void MessageQueue::RequestEvents() {
-  request_jobs_signal_(thread_pool_.size());
+bool MessageQueue::RequestEvents() {
+  const auto optional_result = request_jobs_signal_(thread_pool_.size());
+  if (optional_result) {
+    return *optional_result;
+  }
+  return false;
 }
 void MessageQueue::ConnectJobsProvider(const ProvideJobsSlot &slot) {
   request_jobs_signal_.connect(slot);

@@ -49,9 +49,8 @@ void Library::run(const std::string &input_file,
   const auto in_file_size = input_data_provider_->GetFileSize();
   //TBD(EZ): add getter
   const auto hash_size = sizeof(SignatureGenerator::SignatureType);
-  const auto out_file_size = (in_file_size % hash_size == 0)
-                             ? in_file_size / hash_size
-                             : (in_file_size + 1) / hash_size;
+  const auto chunks_amount = (in_file_size / chunk_size ) + (in_file_size % chunk_size == 0 ? 0 : 1);
+  const auto out_file_size =  chunks_amount * hash_size;
   output_data_consumer_ = std::make_shared<OutputDataConsumer>(out_file, out_file_size, *message_queue_);
 
   // subscription order: from high level to low
@@ -65,11 +64,8 @@ void Library::run(const std::string &input_file,
                                                      .track_foreign(signature_generator_));
 
   message_queue_->ConnectJobsProvider(MessageQueue::ProvideJobsSlot(
-      [&](int jobs) {
-        for (int i = 0; i < jobs; ++i) {
-          input_data_provider_->PostJob();
-        }
-      }).track_foreign(input_data_provider_));
+      &InputDataProvider::PostJob, input_data_provider_.get(), _1)
+                                          .track_foreign(input_data_provider_));
 
   input_data_provider_->RunFirstJob();
   message_queue_->Execute();

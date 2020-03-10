@@ -55,7 +55,10 @@ class InputDataProvider {
 
   void RunFirstJob();
 
-  void PostJob();
+  /**
+   *
+   */
+  bool PostJob(const unsigned jobs_amount);
 
   const std::uintmax_t  GetFileSize() const;
   /**

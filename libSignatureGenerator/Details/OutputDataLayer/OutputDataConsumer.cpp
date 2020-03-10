@@ -22,13 +22,13 @@ OutputDataConsumer::OutputDataConsumer(const std::string &file_path,
                                        MessageQueue &message_queue)
     : file_path_(file_path),
       message_queue_(message_queue) {
-  // remove old file if exists
+  // Remove old file if exists
   boost::interprocess::file_mapping::remove(file_path_.c_str());
-  //Create a new file
+  // Create a new file
   std::fstream fstream;
   fstream.open(file_path, std::ios_base::binary | std::ios_base::out);
   for (int i = 0; i < file_size; ++i) {
-    fstream.put(0);
+    fstream.put(255);
   }
   fstream.close();
   //
@@ -72,6 +72,6 @@ void OutputDataConsumer::WriteSignatureToFile(const SignatureGenerator::ChunkSig
 
   std::atomic_thread_fence(std::memory_order_relaxed);
   std::memcpy(region.get_address(), &signature, signature_size);
-//  region.flush();
+  region.flush();
 }
 

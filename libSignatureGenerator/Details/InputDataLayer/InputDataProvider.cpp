@@ -91,13 +91,17 @@ void InputDataProvider::RunFirstJob() {
   on_data_available_signal_(the_first_chunk);
 }
 
-void InputDataProvider::PostJob() {
-  const auto unique_id = next_chunk_id_.fetch_add(1, std::memory_order_relaxed);
-  assert(unique_id > 0 && "Have we overflow the type?");
-  const auto offset = OffsetType(unique_id) * chunk_size_;
+bool InputDataProvider::PostJob(const unsigned jobs_amount) {
+  for (int i = 0; i < jobs_amount; ++i) {
+    const auto unique_id = next_chunk_id_.fetch_add(1, std::memory_order_relaxed);
+    assert(unique_id > 0 && "Have we overflow the type?");
+    const auto offset = OffsetType(unique_id) * chunk_size_;
 
-  if (GetFileSize() < offset)
-    message_queue_.PostJob(
+    if (offset >= GetFileSize()) {
+      // we have jobs for all file chunks
+      return false;
+    }
+    const auto nextJob =
         [this, offset, unique_id]() {
           try {
             on_data_available_signal_(GenerateNextDataChunk(offset, unique_id));
@@ -107,7 +111,10 @@ void InputDataProvider::PostJob() {
             return false;
           }
           return true;
-        });
+        };
+    message_queue_.PostJob(std::move(nextJob));
+  }
+  return true;
 }
 
 InputDataProvider::DataChunkSptr InputDataProvider::GenerateNextDataChunk(const UniqueId unique_id,

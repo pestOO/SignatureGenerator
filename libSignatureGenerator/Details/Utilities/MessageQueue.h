@@ -36,8 +36,9 @@ using JobSptr = std::shared_ptr<Job>;
 class MessageQueue final {
  public:
   // -- Typedef and using --
-  using RequestJobsSignal = SignalType<void(int)>;
+  using RequestJobsSignal = SignalType<bool(int)>;
   using ProvideJobsSlot = RequestJobsSignal::slot_type;
+  using MutexType = std::recursive_mutex;
   // -- Class members --
   /**
    * Constructs MessageQueue with a pool of ${threads_count} Threads.
@@ -53,7 +54,7 @@ class MessageQueue final {
 
   void Execute();
 
-  void ConnectJobsProvider(const ProvideJobsSlot& slot);
+  void ConnectJobsProvider(const ProvideJobsSlot &slot);
 
   /**
    * @return Preferred amount of threads to be used for the best CPUs usage.
@@ -63,7 +64,10 @@ class MessageQueue final {
  private:
   void osThreadExecutionLoop();
 
-  void RequestEvents();
+  /**
+   * @return
+   */
+  bool RequestEvents();
 
   void RequestStop();
 
@@ -71,12 +75,12 @@ class MessageQueue final {
 
   std::atomic_bool is_running_ = ATOMIC_VAR_INIT(true);
   std::vector<std::thread> thread_pool_;
-  std::mutex mutex_;
-  std::condition_variable condition_var;
+  MutexType mutex_;
+  std::condition_variable_any condition_var;
   std::exception_ptr exception_ptr_; // ??
 
   // TBD(EZ): move to lock free queue
-  std::queue <Job> queue_;
+  std::queue<Job> queue_;
 
   RequestJobsSignal request_jobs_signal_;
 };
