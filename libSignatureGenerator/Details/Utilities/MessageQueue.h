@@ -21,6 +21,8 @@
 #include <thread>
 #include <vector>
 
+#include <boost/lockfree/stack.hpp>
+
 #include "CommonTypes.h"
 
 /**
@@ -51,7 +53,7 @@ class MessageQueue final {
 
   void PostJob(Job job);
 
-  void Execute();
+  void Start();
 
   void SetJobsProvider(const JobsProvider& provider) {
     jobs_provider_ = provider;
@@ -81,13 +83,14 @@ class MessageQueue final {
   std::atomic_bool queue_stopped_ = ATOMIC_VAR_INIT(false);
   // Finish means that there is no more jobs are expected - we can finish waiting threads
   std::atomic_bool queue_jobs_finished_ = ATOMIC_VAR_INIT(false);
+  const unsigned threads_count_;
   std::vector<std::thread> thread_pool_;
-  MutexType mutex_;
-  std::condition_variable_any condition_var;
   std::exception_ptr exception_ptr_; // ??
 
-  // TBD(EZ): move to lock free queue
-  std::queue<Job> queue_;
+  // stack is used for two reasons:
+  // - we want to promote execution to reading
+  // - boost::lockfree::queue requires trivial destructor
+  boost::lockfree::stack<Job> stack_;
 
   JobsProvider jobs_provider_;
 };

@@ -63,6 +63,6 @@ void Library::run(const std::string &input_file,
                                             std::placeholders::_1));
   //TND(EZ): remove redundant first call
   input_data_provider_->RunFirstJob();
-  message_queue_->Execute();
+  message_queue_->Start();
 }
 
