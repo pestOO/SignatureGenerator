@@ -25,7 +25,7 @@ class MessageQueue;
  *
  * @todo extract InputDataProvider listener and remove dependecey from it
  */
-class SignatureGenerator {
+ class SignatureGenerator : public InputDataProvider::DataAvailableListener {
  public:
   using SignatureType = boost::crc_32_type::value_type;
   // -- Support structures and listener of this data --
@@ -40,25 +40,29 @@ class SignatureGenerator {
   };
   // -- Typedef and using --
   using ChunkSignatureSptr = std::shared_ptr<ChunkSignature>;
-  using ChunkSignaturSignal = SignalType<void(const ChunkSignatureSptr &)>;
-  using ChunkSignaturSlot = ChunkSignaturSignal::slot_type;
 
-  // -- Class members --
-  explicit SignatureGenerator(MessageQueue &message_queue);
-
-  /**
-   * ChunkSignature
-   */
-  void GenerateSignature(const InputDataProvider::DataChunkSptr &data_chunk_sptr);
-
+  class DataAvailableListener {
+   public:
+    virtual void OnDataAvailable(const ChunkSignatureSptr&) = 0;
+  };
+  using DataAvailableListenerSptr = std::shared_ptr<DataAvailableListener>;
+  using DataAvailableListenerWptr = std::weak_ptr<DataAvailableListener>;
   /**
    * Connects
    * @warning not thread-safe
    */
-  void ConnectChunkSignatureListener(const ChunkSignaturSlot &slot);
+  void SetConnectChunkDataListener(const DataAvailableListenerSptr& listener) {
+    on_data_available_signal_ = listener;
+  }
+  private:
+   void OnDataAvailable(const InputDataProvider::DataChunkSptr &sptr) override;
+  public:
+   // -- Class members --
+  explicit SignatureGenerator(MessageQueue &message_queue);
+
  private:
   MessageQueue &message_queue_;
-  ChunkSignaturSignal on_data_available_signal_;
+  DataAvailableListenerWptr on_data_available_signal_;
 };
 
 #endif  //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_PROCESSINGLAYER_SIGNATUREGENERATOR_H_

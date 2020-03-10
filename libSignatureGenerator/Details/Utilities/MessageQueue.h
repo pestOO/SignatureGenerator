@@ -36,8 +36,7 @@ using JobSptr = std::shared_ptr<Job>;
 class MessageQueue final {
  public:
   // -- Typedef and using --
-  using RequestJobsSignal = SignalType<bool(int)>;
-  using ProvideJobsSlot = RequestJobsSignal::slot_type;
+  using JobsProvider = std::function<bool(int)>;
   using MutexType = std::recursive_mutex;
   // -- Class members --
   /**
@@ -54,7 +53,9 @@ class MessageQueue final {
 
   void Execute();
 
-  void ConnectJobsProvider(const ProvideJobsSlot &slot);
+  void SetJobsProvider(const JobsProvider& provider) {
+    jobs_provider_ = provider;
+  }
 
   /**
    * @return Preferred amount of threads to be used for the best CPUs usage.
@@ -88,7 +89,7 @@ class MessageQueue final {
   // TBD(EZ): move to lock free queue
   std::queue<Job> queue_;
 
-  RequestJobsSignal request_jobs_signal_;
+  JobsProvider jobs_provider_;
 };
 
 #endif  //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_UTILITIES_MESSAGEQUEUE_H_

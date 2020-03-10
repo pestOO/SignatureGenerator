@@ -12,13 +12,6 @@
 
 #include <cinttypes>
 
-#include <boost/signals2.hpp>
-
-template<class Functor>
-using SignalType = typename boost::signals2::signal<Functor>;
-/*,boost::signals2::keywords::mutex_type< boost::signals2::dummy_mutex> >::type;*/
-
-
 // TBD(EZ): rename to numerical order
 using UniqueId = std::uint32_t;
 using ChunkSizeType = std::uint32_t;

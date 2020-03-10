@@ -47,16 +47,6 @@ OutputDataConsumer::OutputDataConsumer(const std::string &file_path,
 OutputDataConsumer::~OutputDataConsumer() {
 }
 
-void OutputDataConsumer::WriteData(const SignatureGenerator::ChunkSignatureSptr &data) {
-  message_queue_.PostJob(
-      //copy smart pointer to lambda
-      [data, this]() {
-        assert(!!data && "received empty signature pointer");
-        WriteSignatureToFile(*data);
-        return true;
-      });
-}
-
 void OutputDataConsumer::WriteSignatureToFile(const SignatureGenerator::ChunkSignature &data) {
   const auto signature = data.GetSignature();
   const auto signature_size = data.GetSignatureSize();
@@ -67,5 +57,16 @@ void OutputDataConsumer::WriteSignatureToFile(const SignatureGenerator::ChunkSig
   std::atomic_thread_fence(std::memory_order_relaxed);
   auto* memory_address = (char*)region_.get_address() + offset;
   std::memcpy(memory_address, &signature, signature_size);
+}
+
+void OutputDataConsumer::OnDataAvailable(const SignatureGenerator::ChunkSignatureSptr &signature_sptr) {
+  message_queue_.PostJob(
+      //copy smart pointer to lambda
+      [signature_sptr, this]() {
+        assert(!!signature_sptr && "received empty signature pointer");
+        WriteSignatureToFile(*signature_sptr);
+        return true;
+      });
+
 }
 

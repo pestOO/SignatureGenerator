@@ -9,6 +9,8 @@
 
 #include "Library.h"
 
+#include <functional>
+
 #include "Details/Utilities/MessageQueue.h"
 #include "Details/InputDataLayer/InputDataProvider.h"
 #include "Details/ProcessingLayer/SignatureGenerator.h"
@@ -49,24 +51,16 @@ void Library::run(const std::string &input_file,
   const auto in_file_size = input_data_provider_->GetFileSize();
   //TBD(EZ): add getter
   const auto hash_size = sizeof(SignatureGenerator::SignatureType);
-  const auto chunks_amount = (in_file_size / chunk_size ) + (in_file_size % chunk_size == 0 ? 0 : 1);
-  const auto out_file_size =  chunks_amount * hash_size;
+  const auto chunks_amount = (in_file_size / chunk_size) + (in_file_size % chunk_size == 0 ? 0 : 1);
+  const auto out_file_size = chunks_amount * hash_size;
   output_data_consumer_ = std::make_shared<OutputDataConsumer>(out_file, out_file_size, *message_queue_);
 
   // subscription order: from high level to low
-
-  signature_generator_->ConnectChunkSignatureListener(
-      SignatureGenerator::ChunkSignaturSlot(&OutputDataConsumer::WriteData, output_data_consumer_.get(), _1)
-          .track_foreign(output_data_consumer_));
-
-  input_data_provider_->ConnectChunkDataListener(InputDataProvider::DataAvailableSlot(
-      &SignatureGenerator::GenerateSignature, signature_generator_.get(), _1)
-                                                     .track_foreign(signature_generator_));
-
-  message_queue_->ConnectJobsProvider(MessageQueue::ProvideJobsSlot(
-      &InputDataProvider::PostJob, input_data_provider_.get(), _1)
-                                          .track_foreign(input_data_provider_));
-
+  signature_generator_->SetConnectChunkDataListener(output_data_consumer_);
+  input_data_provider_->SetConnectChunkDataListener(signature_generator_);
+  message_queue_->SetJobsProvider(std::bind(&InputDataProvider::PostJob,
+                                            input_data_provider_.get(),
+                                            std::placeholders::_1));
   //TND(EZ): remove redundant first call
   input_data_provider_->RunFirstJob();
   message_queue_->Execute();

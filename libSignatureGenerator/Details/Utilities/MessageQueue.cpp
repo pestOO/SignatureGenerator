@@ -34,6 +34,7 @@ MessageQueue::~MessageQueue() {
 };
 
 void MessageQueue::Execute() {
+  assert(jobs_provider_ && "No jobs provider, which generates jobs");
   RequestJobs();
   for (auto &thread : thread_pool_) {
     assert(thread.joinable());
@@ -103,14 +104,10 @@ void MessageQueue::osThreadExecutionLoop() {
   } while (!IsStopped());
 }
 void MessageQueue::RequestJobs() {
-  const auto optional_result = request_jobs_signal_(thread_pool_.size());
-  if (optional_result) {
-    const bool more_jobs_are_expected = *optional_result;
+  if(jobs_provider_) {
+    const auto more_jobs_are_expected = jobs_provider_(thread_pool_.size());
     if (!more_jobs_are_expected) {
       RequestFinish();
     }
   }
-}
-void MessageQueue::ConnectJobsProvider(const ProvideJobsSlot &slot) {
-  request_jobs_signal_.connect(slot);
 }

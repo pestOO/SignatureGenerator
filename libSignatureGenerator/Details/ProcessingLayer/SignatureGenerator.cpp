@@ -39,14 +39,11 @@ class ChunkSignatureImpl : public SignatureGenerator::ChunkSignature {
 SignatureGenerator::SignatureGenerator(MessageQueue &message_queue)
     : message_queue_(message_queue) {}
 
-void SignatureGenerator::GenerateSignature(const InputDataProvider::DataChunkSptr &data_chunk_sptr) {
+void SignatureGenerator::OnDataAvailable(const InputDataProvider::DataChunkSptr &data_chunk_sptr) {
   message_queue_.PostJob(
       [data_chunk_sptr, this]() {
-        on_data_available_signal_(std::make_shared<ChunkSignatureImpl>(*data_chunk_sptr));
+        if (auto listener = on_data_available_signal_.lock())
+          listener->OnDataAvailable(std::make_shared<ChunkSignatureImpl>(*data_chunk_sptr));
         return true;
       });
 }
-void SignatureGenerator::ConnectChunkSignatureListener(const ChunkSignaturSlot &slot) {
-  on_data_available_signal_.connect(slot);
-}
-

@@ -23,12 +23,15 @@
 //forward declaration
 class MessageQueue;
 
-class OutputDataConsumer {
+class OutputDataConsumer : public SignatureGenerator::DataAvailableListener  {
  public:
   OutputDataConsumer(const std::string &file_path,
                      const std::size_t file_size,
                      MessageQueue &message_queue);
   virtual ~OutputDataConsumer();
+ private:
+  void OnDataAvailable(const SignatureGenerator::ChunkSignatureSptr &sptr) override;
+ public:
   void WriteData(const SignatureGenerator::ChunkSignatureSptr &data);
 
  private:

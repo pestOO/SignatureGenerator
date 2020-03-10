@@ -87,8 +87,9 @@ void InputDataProvider::RunFirstJob() {
         std::string("Could load file chunk, maybe chunk size does not fit RAM, exact error is: ") + exception.what());
   }
 
-  assert((!on_data_available_signal_.empty()) && "nobody listens InputDataProvider");
-  on_data_available_signal_(the_first_chunk);
+  assert((!on_data_available_signal_.expired()) && "nobody listens InputDataProvider");
+  if(auto listener = on_data_available_signal_.lock())
+    listener->OnDataAvailable(GenerateNextDataChunk(unique_id, offset));
 }
 
 bool InputDataProvider::PostJob(const unsigned jobs_amount) {
@@ -104,7 +105,8 @@ bool InputDataProvider::PostJob(const unsigned jobs_amount) {
     const auto nextJob =
         [this, offset, unique_id]() {
           try {
-            on_data_available_signal_(GenerateNextDataChunk(unique_id, offset));
+            if(auto listener = on_data_available_signal_.lock())
+              listener->OnDataAvailable(GenerateNextDataChunk(unique_id, offset));
           } catch (const std::bad_alloc &exception) {
             std::cout << "Warning:" << exception.what() << std::endl;
             std::cout << "Postpone reading job." << std::endl;;
@@ -122,9 +124,6 @@ InputDataProvider::DataChunkSptr InputDataProvider::GenerateNextDataChunk(const 
   return std::make_shared<DataChunkImpl>(unique_id, file_path_, offset, chunk_size_);
 }
 
-void InputDataProvider::ConnectChunkDataListener(const InputDataProvider::DataAvailableSlot &slot) {
-  on_data_available_signal_.connect(slot);
-}
 const std::uintmax_t InputDataProvider::GetFileSize() const {
   return file_size_;
 }

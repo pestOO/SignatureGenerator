@@ -48,8 +48,22 @@ class InputDataProvider {
   // -- Typedef and using --
   using DataChunkSptr = std::shared_ptr<DataChunk>;
   using OffsetType = std::uint64_t;
-  using DataAvailableSignal = SignalType<void(const DataChunkSptr &)>;
-  using DataAvailableSlot = DataAvailableSignal::slot_type;
+
+  class DataAvailableListener {
+   public:
+    virtual void OnDataAvailable(const DataChunkSptr&) = 0;
+  };
+  using DataAvailableListenerSptr = std::shared_ptr<DataAvailableListener>;
+  using DataAvailableListenerWptr = std::weak_ptr<DataAvailableListener>;
+  /**
+   * Connects
+   * @warning not thread-safe
+   */
+  void SetConnectChunkDataListener(const DataAvailableListenerSptr& listener) {
+    on_data_available_signal_ = listener;
+  }
+
+
   // -- Class members --
   InputDataProvider(std::string file_path, ChunkSizeType chunk_size, MessageQueue &message_queue);
 
@@ -61,11 +75,6 @@ class InputDataProvider {
   bool PostJob(const unsigned jobs_amount);
 
   const std::uintmax_t  GetFileSize() const;
-  /**
-   * Connects
-   * @warning not thread-safe
-   */
-  void ConnectChunkDataListener(const DataAvailableSlot &slot);
 
  private:
   DataChunkSptr GenerateNextDataChunk(const UniqueId unique_id, const OffsetType offset);
@@ -83,7 +92,7 @@ class InputDataProvider {
   // The next chunk info
   std::atomic<UniqueId> next_chunk_id_ = ATOMIC_VAR_INIT(0u);
   // data consumer
-  DataAvailableSignal on_data_available_signal_;
+  DataAvailableListenerWptr on_data_available_signal_;
 };
 
 #endif  //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_INPUTDATALAYER_INPUTDATAPROVIDER_H_
