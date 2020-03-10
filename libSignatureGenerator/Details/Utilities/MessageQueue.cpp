@@ -34,19 +34,27 @@ MessageQueue::~MessageQueue() {
 };
 
 void MessageQueue::Execute() {
-  RequestEvents();
+  RequestJobs();
   for (auto &thread : thread_pool_) {
     assert(thread.joinable());
     thread.join();
   }
 }
 
-bool MessageQueue::IsRunning() const {
-  return is_running_.load(std::memory_order_acquire);
+bool MessageQueue::IsFinished() const {
+  return queue_jobs_finished_.load(std::memory_order_acquire);
+}
+void MessageQueue::RequestFinish() {
+  queue_jobs_finished_.store(true, std::memory_order_release);
+  condition_var.notify_all();
+}
+
+bool MessageQueue::IsStopped() const {
+  return queue_stopped_.load(std::memory_order_acquire);
 }
 
 void MessageQueue::RequestStop() {
-  is_running_.store(false, std::memory_order_release);
+  queue_stopped_.store(false, std::memory_order_release);
   condition_var.notify_all();
 }
 
@@ -63,14 +71,13 @@ void MessageQueue::osThreadExecutionLoop() {
     Job next_job;
     {
       std::unique_lock<MutexType> lock(mutex_);
-      if (queue_.empty()) {
-        if (!RequestEvents()) {
-          // no more data is available - finish thread
-          return;
-        }
+      if (queue_.empty() && !IsFinished()) {
+        RequestJobs();
       };
-      condition_var.wait(lock, [this] { return !queue_.empty() || !IsRunning(); });
-      if (!IsRunning()) {
+      condition_var.wait(lock, [this] {
+        return !queue_.empty() || IsStopped() || IsFinished();
+      });
+      if (IsStopped() || (IsFinished() && queue_.empty())) {
         return;
       }
       assert(!queue_.empty());
@@ -93,14 +100,16 @@ void MessageQueue::osThreadExecutionLoop() {
       }
       RequestStop();
     }
-  } while (IsRunning());
+  } while (!IsStopped());
 }
-bool MessageQueue::RequestEvents() {
+void MessageQueue::RequestJobs() {
   const auto optional_result = request_jobs_signal_(thread_pool_.size());
   if (optional_result) {
-    return *optional_result;
+    const bool more_jobs_are_expected = *optional_result;
+    if (!more_jobs_are_expected) {
+      RequestFinish();
+    }
   }
-  return false;
 }
 void MessageQueue::ConnectJobsProvider(const ProvideJobsSlot &slot) {
   request_jobs_signal_.connect(slot);

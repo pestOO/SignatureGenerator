@@ -37,9 +37,9 @@ class OutputDataConsumer {
   const std::string file_path_;
   // blocks other process to change the file
   boost::interprocess::file_lock file_lock_;
-  // file mapped to memoewry
+  // file mapped to memory
   boost::interprocess::file_mapping mapped_file_;
-//  boost::interprocess::mapped_region region_;
+  boost::interprocess::mapped_region region_;
   // async working queue
   MessageQueue &message_queue_;
 };

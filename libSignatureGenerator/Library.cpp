@@ -67,6 +67,7 @@ void Library::run(const std::string &input_file,
       &InputDataProvider::PostJob, input_data_provider_.get(), _1)
                                           .track_foreign(input_data_provider_));
 
+  //TND(EZ): remove redundant first call
   input_data_provider_->RunFirstJob();
   message_queue_->Execute();
 }

@@ -67,13 +67,19 @@ class MessageQueue final {
   /**
    * @return
    */
-  bool RequestEvents();
+  void RequestJobs();
 
   void RequestStop();
 
-  bool IsRunning() const;
+  bool IsStopped() const;
 
-  std::atomic_bool is_running_ = ATOMIC_VAR_INIT(true);
+  void RequestFinish();
+  bool IsFinished() const;
+
+  // Stop meas that for some reasons all threads need to me immediately stopped
+  std::atomic_bool queue_stopped_ = ATOMIC_VAR_INIT(false);
+  // Finish means that there is no more jobs are expected - we can finish waiting threads
+  std::atomic_bool queue_jobs_finished_ = ATOMIC_VAR_INIT(false);
   std::vector<std::thread> thread_pool_;
   MutexType mutex_;
   std::condition_variable_any condition_var;

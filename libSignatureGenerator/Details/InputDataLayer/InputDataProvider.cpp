@@ -104,7 +104,7 @@ bool InputDataProvider::PostJob(const unsigned jobs_amount) {
     const auto nextJob =
         [this, offset, unique_id]() {
           try {
-            on_data_available_signal_(GenerateNextDataChunk(offset, unique_id));
+            on_data_available_signal_(GenerateNextDataChunk(unique_id, offset));
           } catch (const std::bad_alloc &exception) {
             std::cout << "Warning:" << exception.what() << std::endl;
             std::cout << "Postpone reading job." << std::endl;;

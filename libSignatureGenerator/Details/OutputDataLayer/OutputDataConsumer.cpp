@@ -38,10 +38,10 @@ OutputDataConsumer::OutputDataConsumer(const std::string &file_path,
   };
 
   mapped_file_ = boost::interprocess::file_mapping(file_path_.c_str(), boost::interprocess::read_write);
-//  region_ = boost::interprocess::mapped_region(mapped_file_,
-//                                               boost::interprocess::read_write,
-//                                               0,
-//                                               file_size);
+  region_ = boost::interprocess::mapped_region(mapped_file_,
+                                               boost::interprocess::read_write,
+                                               0,
+                                               file_size);
 }
 
 OutputDataConsumer::~OutputDataConsumer() {
@@ -62,16 +62,10 @@ void OutputDataConsumer::WriteSignatureToFile(const SignatureGenerator::ChunkSig
   const auto signature_size = data.GetSignatureSize();
   const auto offset = data.GetUniqueId() * signature_size;
 
-  boost::interprocess::mapped_region region(mapped_file_,
-                                            boost::interprocess::read_write,
-                                            offset,
-                                            signature_size);
-
-  //TBD(EZ): move to facade
-  assert(region.get_size() == signature_size && "signature_size does not fit region");
+  assert(region_.get_size() >= signature_size && "signature_size does not fit region");
 
   std::atomic_thread_fence(std::memory_order_relaxed);
-  std::memcpy(region.get_address(), &signature, signature_size);
-  region.flush();
+  auto* memory_address = (char*)region_.get_address() + offset;
+  std::memcpy(memory_address, &signature, signature_size);
 }
 
