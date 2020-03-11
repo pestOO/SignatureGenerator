@@ -88,14 +88,14 @@ void InputDataProvider::RunFirstJob() {
   }
 
   assert((!on_data_available_signal_.expired()) && "nobody listens InputDataProvider");
-  if(auto listener = on_data_available_signal_.lock())
+  if (auto listener = on_data_available_signal_.lock())
     listener->OnDataAvailable(GenerateNextDataChunk(unique_id, offset));
 }
 
 bool InputDataProvider::PostJob(const unsigned jobs_amount) {
   for (int i = 0; i < jobs_amount; ++i) {
     const auto unique_id = next_chunk_id_.fetch_add(1, std::memory_order_relaxed);
-    assert(unique_id > 0 && "Have we overflow the type?");
+    assert(unique_id >= 0 && "Have we overflow the type?");
     const auto offset = OffsetType(unique_id) * chunk_size_;
 
     if (offset >= GetFileSize()) {
@@ -105,7 +105,7 @@ bool InputDataProvider::PostJob(const unsigned jobs_amount) {
     const auto nextJob =
         [this, offset, unique_id]() {
           try {
-            if(auto listener = on_data_available_signal_.lock())
+            if (auto listener = on_data_available_signal_.lock())
               listener->OnDataAvailable(GenerateNextDataChunk(unique_id, offset));
           } catch (const std::bad_alloc &exception) {
             std::cout << "Warning:" << exception.what() << std::endl;
@@ -121,9 +121,11 @@ bool InputDataProvider::PostJob(const unsigned jobs_amount) {
 
 InputDataProvider::DataChunkSptr InputDataProvider::GenerateNextDataChunk(const UniqueId unique_id,
                                                                           const InputDataProvider::OffsetType offset) {
-  return std::make_shared<DataChunkImpl>(unique_id, file_path_, offset, chunk_size_);
+  // We can read the last chunk, which could be less than chunk_size_
+  const auto real_chunk_size_ = (GetFileSize() > (offset + chunk_size_)) ? chunk_size_ : (GetFileSize() - offset);
+  return std::make_shared<DataChunkImpl>(unique_id, file_path_, offset, real_chunk_size_);
 }
 
-const std::uintmax_t InputDataProvider::GetFileSize() const {
+std::uintmax_t InputDataProvider::GetFileSize() const {
   return file_size_;
 }

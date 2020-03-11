@@ -16,5 +16,5 @@ add_library(${PROJECT_NAME} SHARED
         Library.cpp
         Library.h)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_THREAD_LIBS_INIT} Boost::headers Boost::filesystem)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_THREAD_LIBS_INIT} Boost::headers Boost::filesystem Boost::iostreams)
 target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS} Details)

@@ -16,8 +16,8 @@
 #include "Details/ProcessingLayer/SignatureGenerator.h"
 #include "Details/OutputDataLayer/OutputDataConsumer.h"
 
-Library::Library() {
-}
+//Library::Library() {
+//}
 
 Library::~Library() {
   // clear components in the reverse order of subscription and construction
@@ -62,7 +62,7 @@ void Library::run(const std::string &input_file,
                                             input_data_provider_.get(),
                                             std::placeholders::_1));
   //TND(EZ): remove redundant first call
-  input_data_provider_->RunFirstJob();
+//  input_data_provider_->RunFirstJob();
   message_queue_->Start();
 }
 

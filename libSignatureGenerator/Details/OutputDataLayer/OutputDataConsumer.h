@@ -11,9 +11,8 @@
 #define SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_OUTPUTDATALAYER_OUTPUTDATACONSUMER_H_
 #pragma once
 
-// TODO(EZ): use Pimpl to hide all implementation in other file or move to utilities
-#define BOOST_DATE_TIME_NO_LIB
-#include <boost/interprocess/managed_mapped_file.hpp>
+#include <boost/iostreams/code_converter.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
 
 #include "Utilities/CommonTypes.h"
 #include "ProcessingLayer/SignatureGenerator.h"
@@ -21,7 +20,7 @@
 //forward declaration
 class MessageQueue;
 
-class OutputDataConsumer : public SignatureGenerator::DataAvailableListener  {
+class OutputDataConsumer : public SignatureGenerator::DataAvailableListener {
  public:
   OutputDataConsumer(const std::string &file_path,
                      const std::size_t file_size,
@@ -38,7 +37,14 @@ class OutputDataConsumer : public SignatureGenerator::DataAvailableListener  {
   // blocks other process to change the file
   boost::interprocess::file_lock file_lock_;
   // file mapped to memory
-  boost::interprocess::managed_mapped_file mapped_file_;
+//  using MappedFile1 = boost::interprocess::managed_mapped_file;
+//  using MappedFile = boost::interprocess::basic_managed_mapped_file<char,
+//                                                                    boost::interprocess::simple_seq_fit<
+//                                                                        boost::interprocess::null_mutex_family>,
+//                                                                    boost::interprocess::null_index>;
+  using MappedFile = boost::iostreams::mapped_file_sink;
+  const std::string file_path_;
+  MappedFile mapped_file_;
   // async working queue
   MessageQueue &message_queue_;
 };

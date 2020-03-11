@@ -29,30 +29,26 @@ class Library {
   /**
    * @brief Library default constructor
    */
-  Library();
+  Library() = default;
 
+  /**
+   * @brief clean-up library components
+   */
   virtual ~Library();
-//  /**
-//   * @brief Initialize library
-//   * Loads configuration settings.
-//   *
-//   * exceptions?
-//   */
-//  void Initialize();
 
   /**
    * @brief Start execution
-   * Reuses the caller thread for data processing in one pf the configured threads
+   * Reuses the caller thread for data processing in one of the configured threads
    *
    * @param input_file in a current system format
    * @param out_file in a current system format
    * @param chunk_size in bytes
    *
-   * @throws a various types of exception with valid
-   * @note "What" information of thrown exception could be used by
-   * integration engineer
-   * @warning "What" information of thrown exception couldn't be used for
-   * multi-language UI due to English only infomration.
+   * @throws a various types of exception with valid description
+   *
+   * @note "What" information of the thrown exception could be used by integration engineer
+   *
+   * @warning "What" information of the thrown exception couldn't be used for multi-language UI
    */
   void run(const std::string &input_file, const std::string &out_file, const std::uint32_t chunk_size);
 

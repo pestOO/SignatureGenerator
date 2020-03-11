@@ -63,7 +63,6 @@ class InputDataProvider {
     on_data_available_signal_ = listener;
   }
 
-
   // -- Class members --
   InputDataProvider(std::string file_path, ChunkSizeType chunk_size, MessageQueue &message_queue);
 
@@ -74,7 +73,7 @@ class InputDataProvider {
    */
   bool PostJob(const unsigned jobs_amount);
 
-  const std::uintmax_t  GetFileSize() const;
+  std::uintmax_t  GetFileSize() const;
 
  private:
   DataChunkSptr GenerateNextDataChunk(const UniqueId unique_id, const OffsetType offset);
