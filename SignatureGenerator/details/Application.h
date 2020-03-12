@@ -11,21 +11,16 @@
 #define SIGNATUREGENERATOR_SIGNATUREGENERATOR_DETAILS_APPLICATION_H_
 #pragma once
 
-#include <memory>
-
-//TBD(EZ): remove relative includes by updating cmake
 #include "libSignatureGenerator/Library.h"
 
 /**
- * @brief The Application class
- * Wraps library to the console UI.
- *
- * Manipulates user input and provides "help" infomration.
+ * @brief The Application class wraps library.
+ * Implements console UI.
+ * Manipulates user input.
+ * Provides "help" information.
+ * Shows library exceptional errors.
  */
 class Application {
- private:
-  Library library;
-
  public:
   /**
    * @brief Application default constructor
@@ -33,7 +28,7 @@ class Application {
   Application() = default;
 
   /**
-   * @brief run application
+   * @brief run console application
    * @param argc amount of arguments passed from user
    * @param argv - list of arguments
    * @return EXIT_SUCCESS in case of success, otherwise EXIT_FAILURE
@@ -41,6 +36,8 @@ class Application {
    * @note printing help result without data processign in a success result
    */
   int run(int argc, char *argv[]);
+ private:
+  Library library;
 };
 
 #endif  //SIGNATUREGENERATOR_SIGNATUREGENERATOR_DETAILS_APPLICATION_H_

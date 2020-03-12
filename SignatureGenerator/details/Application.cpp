@@ -29,15 +29,15 @@ constexpr auto ARG_SIZE_ACCESS_NAME = "size";
 
 // --------- Application implementation -------/
 int Application::run(int argc, char *argv[]) {
-  const auto start = std::chrono::system_clock::now();
   using boost::program_options::value;
-  boost::program_options::options_description desc("Hash-signatures generator");
-  // TODO(EZamakhov): change default LLVM clang style format
+
+  const auto start = std::chrono::system_clock::now();
+
+  boost::program_options::options_description desc("File signatures generator");
   desc.add_options()
       (ARG_HELP_NAME, "Shows help information")
       (ARG_IN_FULL_NAME, value<std::string>()->required(), "input file path")
       (ARG_OUT_FULL_NAME, value<std::string>()->required(), "outpute file path")
-      // TODO(EZmamakhov): add parsing MiB, KiB and so on
       (ARG_SIZE_FULL_NAME, value<std::uint32_t>()->default_value(1024, "1 MiB)"),
        "file chunks size in KiBytes, default value is 1024 KiBytes (1 MiB)");
   try {
@@ -49,8 +49,10 @@ int Application::run(int argc, char *argv[]) {
       std::cout << desc << std::endl;
       return EXIT_SUCCESS;
     }
-    library.run(vm[ARG_IN_ACCESS_NAME].as<std::string>(), vm[ARG_OUT_ACCESS_NAME].as<std::string>(),
-                vm[ARG_SIZE_ACCESS_NAME].as<std::uint32_t>() * 1024);
+    library.run(
+        vm[ARG_IN_ACCESS_NAME].as<std::string>(),
+        vm[ARG_OUT_ACCESS_NAME].as<std::string>(),
+        vm[ARG_SIZE_ACCESS_NAME].as<std::uint32_t>() * 1024);
   }
   catch (const boost::program_options::error_with_option_name &exception) {
     std::cerr << "Arguments parsing failed : " << exception.what() << "." << std::endl;
