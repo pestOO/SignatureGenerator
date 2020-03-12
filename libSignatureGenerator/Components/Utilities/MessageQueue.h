@@ -47,7 +47,7 @@ class MessageQueue final {
    *
    * @note Use RecommendedAmountOfThreads as a hint to determine threads_count of threads.
    */
-  explicit MessageQueue(unsigned threads_count);
+  explicit MessageQueue();
 
   ~MessageQueue();
 
@@ -59,13 +59,12 @@ class MessageQueue final {
     jobs_provider_ = provider;
   }
 
-  /**
-   * @return Preferred amount of threads to be used for the best CPUs usage.
-   * @note If this value is not computable or well defined, the function returns 0.
-   */
-  static unsigned RecommendedAmountOfThreads();
  private:
   void osThreadExecutionLoop();
+
+  void CreateThreads();
+
+  void JoinThreads();
 
   /**
    * @return
@@ -85,12 +84,12 @@ class MessageQueue final {
   std::atomic_bool queue_jobs_finished_ = ATOMIC_VAR_INIT(false);
   const unsigned threads_count_;
   std::vector<std::thread> thread_pool_;
-  std::exception_ptr exception_ptr_; // ??
+  std::exception_ptr first_thrown_exception_ptr_;
 
   // stack is used for two reasons:
   // - we want to promote execution to reading
   // - boost::lockfree::queue requires trivial destructor
-  boost::lockfree::stack<Job> stack_;
+  boost::lockfree::stack<Job> jobs_stack_;
 
   JobsProvider jobs_provider_;
 };

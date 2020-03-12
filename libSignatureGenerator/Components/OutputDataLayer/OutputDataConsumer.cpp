@@ -54,7 +54,6 @@ void OutputDataConsumer::WriteSignatureToFile(const SignatureGenerator::ChunkSig
 
   assert(mapped_file_.size() >= signature_size && "signature_size does not fit region");
 
-  std::atomic_thread_fence(std::memory_order_relaxed);
   std::memcpy(mapped_file_.data() + offset, &signature, signature_size);
 }
 

@@ -7,41 +7,57 @@
  * permission of Elisey Zamakhov.
  *****************************************************************************/
 
-
 #include "MessageQueue.h"
 
-unsigned MessageQueue::RecommendedAmountOfThreads() {
+#include <iostream>
+
+/**
+ * @return Preferred amount of threads to be used for the best CPUs usage.
+ * @note If this value is not computable or well defined, the function returns 0.
+ */
+unsigned RecommendedAmountOfThreads() {
   return std::thread::hardware_concurrency();
 }
 
-MessageQueue::MessageQueue(unsigned threads_count)
-    : threads_count_(threads_count),
+MessageQueue::MessageQueue()
+    : threads_count_(RecommendedAmountOfThreads()),
     // each thread can request for threads_count jobs
-      stack_(threads_count * threads_count) {
-  assert(threads_count > 1 && "using message queue with low number of threads is useless");
+      jobs_stack_(threads_count_ * threads_count_) {
+  assert(threads_count_ > 1 && "Could not determine amount of available cpu/cores.");
 }
 
 MessageQueue::~MessageQueue() {
   // TBD(EZ): avoid possible UB (access to thread fields by job  after destructor call) by adding public join
   RequestStop();
-  for (auto &thread : thread_pool_) {
-    if (thread.joinable()) {
-      thread.join();
-    }
-  }
 };
 
 void MessageQueue::Start() {
   assert(jobs_provider_ && "No jobs provider, which generates jobs");
   RequestJobs();
+  // use the current thread for execution
+  osThreadExecutionLoop();
+
+  JoinThreads();
+  if (first_thrown_exception_ptr_) {
+    std::rethrow_exception(first_thrown_exception_ptr_);
+  }
+}
+
+
+void MessageQueue::CreateThreads() {
   thread_pool_.reserve(threads_count_);
   for (int i = 0; i < threads_count_; ++i) {
     // TBD(EZ): reduce stack size of the each thread
     thread_pool_.emplace_back(&MessageQueue::osThreadExecutionLoop, this);
   }
+}
+
+void MessageQueue::JoinThreads() {
   for (auto &thread : thread_pool_) {
-    assert(thread.joinable());
-    thread.join();
+    if (thread.joinable()) {
+      assert(thread.joinable() && "all created threads shall be joinable");
+      thread.join();
+    }
   }
 }
 
@@ -62,13 +78,13 @@ void MessageQueue::RequestStop() {
 }
 
 void MessageQueue::PostJob(Job job) {
-  stack_.push(job);
+  jobs_stack_.push(job);
 }
 
 void MessageQueue::osThreadExecutionLoop() {
   do {
     Job next_job;
-    const bool is_empty = !stack_.pop(next_job);
+    const bool is_empty = !jobs_stack_.pop(next_job);
     if (IsStopped() || (IsFinished() && is_empty)) {
       return;
     }
@@ -86,8 +102,8 @@ void MessageQueue::osThreadExecutionLoop() {
       }
     } catch (...) {
       // catch the first exception
-      if (!exception_ptr_) {
-        exception_ptr_ = std::current_exception();
+      if (!first_thrown_exception_ptr_) {
+        first_thrown_exception_ptr_ = std::current_exception();
       }
       RequestStop();
     }
@@ -95,7 +111,9 @@ void MessageQueue::osThreadExecutionLoop() {
 }
 void MessageQueue::RequestJobs() {
   if (jobs_provider_) {
-    const auto more_jobs_are_expected = jobs_provider_(thread_pool_.size());
+    // in case od
+    const auto amount = thread_pool_.size();
+    const auto more_jobs_are_expected = jobs_provider_(amount > 0 ? amount : 1 );
     if (!more_jobs_are_expected) {
       RequestFinish();
     }
