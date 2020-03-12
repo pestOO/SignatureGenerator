@@ -11,6 +11,8 @@
 
 #include <iostream>
 
+#include <boost/config.hpp>
+
 /**
  * @return Preferred amount of threads to be used for the best CPUs usage.
  * @note If this value is not computable or well defined, the function returns 0.
@@ -26,39 +28,43 @@ MessageQueue::MessageQueue()
   assert(threads_count_ > 1 && "Could not determine amount of available cpu/cores.");
 }
 
+void MessageQueue::SetJobsProvider(const MessageQueue::JobsProvider &provider) {
+  jobs_provider_ = provider;
+}
+
 MessageQueue::~MessageQueue() {
-  // TBD(EZ): avoid possible UB (access to thread fields by job  after destructor call) by adding public join
   RequestStop();
+  JoinThreads();
 };
 
 void MessageQueue::Start() {
   assert(jobs_provider_ && "No jobs provider, which generates jobs");
-  RequestJobs();
-  // use the current thread for execution
+  RequestNewJobs();
+  CreateThreads();
+  // re-use the current main thread for real work
   osThreadExecutionLoop();
-
   JoinThreads();
   if (first_thrown_exception_ptr_) {
     std::rethrow_exception(first_thrown_exception_ptr_);
   }
 }
 
-
 void MessageQueue::CreateThreads() {
   thread_pool_.reserve(threads_count_);
-  for (int i = 0; i < threads_count_; ++i) {
-    // TBD(EZ): reduce stack size of the each thread
+  for (unsigned i = 0; i < threads_count_; ++i) {
+    // TODO: we can reduce stack size of the each thread
     thread_pool_.emplace_back(&MessageQueue::osThreadExecutionLoop, this);
   }
 }
 
 void MessageQueue::JoinThreads() {
   for (auto &thread : thread_pool_) {
+    assert(thread.joinable() && "all created threads shall be joinable");
     if (thread.joinable()) {
-      assert(thread.joinable() && "all created threads shall be joinable");
       thread.join();
     }
   }
+  thread_pool_.clear();
 }
 
 bool MessageQueue::IsFinished() const {
@@ -77,44 +83,47 @@ void MessageQueue::RequestStop() {
   queue_stopped_.store(false, std::memory_order_release);
 }
 
-void MessageQueue::PostJob(Job job) {
+void MessageQueue::PostJob(const Job &job) {
   jobs_stack_.push(job);
 }
 
 void MessageQueue::osThreadExecutionLoop() {
   do {
     Job next_job;
-    const bool is_empty = !jobs_stack_.pop(next_job);
-    if (IsStopped() || (IsFinished() && is_empty)) {
-      return;
-    }
-    if (is_empty && !IsFinished()) {
-      RequestJobs();
+    const bool is_stack_empty = !jobs_stack_.pop(next_job);
+    if (is_stack_empty) {
+      if (BOOST_UNLIKELY(IsFinished())) {
+        return;
+      }
+      RequestNewJobs();
+      continue;
     };
     try {
-      // check functor for validity
-      if (next_job) {
+      // check job for validity
+      if (BOOST_LIKELY(!!next_job)) {
+        const auto job_succeed = next_job();
         // run the job
-        if (!next_job()) {
+        if (!BOOST_LIKELY(job_succeed)) {
           // push failed job back
-          PostJob(std::move(next_job));
+          PostJob(next_job);
         };
       }
     } catch (...) {
+      RequestStop();
       // catch the first exception
       if (!first_thrown_exception_ptr_) {
         first_thrown_exception_ptr_ = std::current_exception();
       }
-      RequestStop();
     }
-  } while (!IsStopped());
+  } while (BOOST_LIKELY(!IsStopped()));
 }
-void MessageQueue::RequestJobs() {
+
+void MessageQueue::RequestNewJobs() {
   if (jobs_provider_) {
-    // in case od
-    const auto amount = thread_pool_.size();
-    const auto more_jobs_are_expected = jobs_provider_(amount > 0 ? amount : 1 );
-    if (!more_jobs_are_expected) {
+    assert(thread_pool_.size() < std::numeric_limits<unsigned>::max() && "pool size does not fit type");
+    const auto amount = static_cast<unsigned>(thread_pool_.size());
+    const auto more_jobs_are_expected = jobs_provider_(amount > 0 ? amount : 1);
+    if (BOOST_UNLIKELY(!more_jobs_are_expected)) {
       RequestFinish();
     }
   }

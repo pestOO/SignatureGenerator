@@ -12,7 +12,6 @@
 #pragma once
 
 #include <atomic>
-#include <condition_variable>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -26,68 +25,65 @@
 #include "CommonTypes.h"
 
 /**
- * Functional object to be called in the tread.
- * @return true if job was done, otherwise false
+ * Implements Message Queue pattern for heavy (non-stoppable) operations processing.
  *
- * Job shall return fall only when job could not be handle NOW, but can be handled later/
- * Job shall throw exception if job could not be handle at all.
+ * @warning optimised with a lock-free structure, - waiting new jobs is very expensive for CPU.
  */
-using Job = std::function<bool()>;
-using JobSptr = std::shared_ptr<Job>;
-
 class MessageQueue final {
  public:
-  // -- Typedef and using --
-  using JobsProvider = std::function<bool(int)>;
-  using MutexType = std::recursive_mutex;
-  // -- Class members --
   /**
-   * Constructs MessageQueue with a pool of ${threads_count} Threads.
-   * @param threads_count of threads to be created and warmed up for execution
-   *
-   * @note Use RecommendedAmountOfThreads as a hint to determine threads_count of threads.
+   * Constructs MessageQueue with a pool of threads for execution.
+   * Threads are not warmed upa nd waiting Start call.
+   * @warning Relies on std::thread::hardware_concurrency, which could be nto implmented for some platforms/compiler.
    */
   explicit MessageQueue();
 
+  /**
+   * Force all threads to stop. Wait all threads to be stopped.
+   */
   ~MessageQueue();
 
-  void PostJob(Job job);
+  /**
+   * Post one job to the message queue.
+   * @param job to be executed in one the threads.
+   */
+  void PostJob(const Job &job);
 
+  /**
+   * Start all threads for jobs execution.
+   * @note blocks calling thread and reuse it for jobs proessing.
+   */
   void Start();
 
-  void SetJobsProvider(const JobsProvider& provider) {
-    jobs_provider_ = provider;
-  }
+  using JobsProvider = std::function<bool(unsigned)>;
+  /**
+   *  Set Jobs provider, which will be requested for a new job each time queue is empty.
+   * @param provider
+   */
+  void SetJobsProvider(const JobsProvider &provider);
 
  private:
   void osThreadExecutionLoop();
-
   void CreateThreads();
-
   void JoinThreads();
-
-  /**
-   * @return
-   */
-  void RequestJobs();
-
+  void RequestNewJobs();
   void RequestStop();
-
   bool IsStopped() const;
-
   void RequestFinish();
   bool IsFinished() const;
 
   // Stop meas that for some reasons all threads need to me immediately stopped
   std::atomic_bool queue_stopped_ = ATOMIC_VAR_INIT(false);
-  // Finish means that there is no more jobs are expected - we can finish waiting threads
+  // Finish means that there is no more jobs are expected - we can finish jobs before exit
   std::atomic_bool queue_jobs_finished_ = ATOMIC_VAR_INIT(false);
+
   const unsigned threads_count_;
   std::vector<std::thread> thread_pool_;
   std::exception_ptr first_thrown_exception_ptr_;
 
-  // stack is used for two reasons:
-  // - we want to promote execution to reading
+  // stack is used for several reasons:
+  // - we want to promote execution (CPU load) to reading (IO operation)
+  // - we can reduce the case when all memory is occupied by read data and we have no resources to calculate
   // - boost::lockfree::queue requires trivial destructor
   boost::lockfree::stack<Job> jobs_stack_;
 

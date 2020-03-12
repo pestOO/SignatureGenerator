@@ -11,9 +11,24 @@
 #define SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_UTILITIES_COMMONTYPES_H_
 
 #include <cinttypes>
+#include <functional>
+#include <memory>
 
-// TBD(EZ): rename to numerical order
-using UniqueId = std::uint32_t;
-using ChunkSizeType = std::uint32_t;
+// Set of integer aliases
+using NumericOrder = std::uint64_t;
+using ChunkSize = std::uint64_t;
+using Offset = std::uint64_t;
+
+/**
+ * Functional Job object are to be called in the thread.
+ * @return true if job was done, otherwise false.
+ *
+ * @note Job shall return false only when job could not be handle NOW, but can be handled later on.
+ * @note Job shall throw exception if job could not be handle at all.
+ *
+ * @warning need to be thread-safe
+ */
+using Job = std::function<bool()>;
+using JobSptr = std::shared_ptr<Job>;
 
 #endif //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_UTILITIES_COMMONTYPES_H_
