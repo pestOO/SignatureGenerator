@@ -1,50 +1,109 @@
-# File multithread hasher
+# File signatures console application and library
 
-Generate file with a list hashes of the original file chuncks.
+Utility generates a file with a list of binary signatures of the input file chunks.
+
+:warning: Signature is an abstract term, which accumulates hash and checksum algorithms.
 
 ## Getting Started
 
-Requires boost libraries, which are downloaded automatically by cmake
+Requires boost libraries and C++14 GNU compiler.
+
+Project structure is inspired by 
+[Canonical Project Structure](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1204r0.html)
+and [An Introduction to Modern CMake](https://cliutils.gitlab.io/modern-cmake/chapters/basics/structure.html).
+
+Code style is driven by [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) with elements of
+[C++ Core Guidelines](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md).
+
+For more business and architectural details, please follow
+[Architectural document](Documentation/Architecture.md).
 
 ### Prerequisites
 
 ```
+install make
 install cmake
+install clang or gcc
+install boost libraries
 ```
 
 ### Building
 
-A step by step series of examples that tell you how to get a development env running
-
-Say what the step will be
-
 ```
 cd ${Project folder}
-cmake ./
+cmake . -B ${Build-folder-path}
+cd ${Build-folder-path}
+make
 ```
 
 ## Running the tests
 
+Please, run tests on you platform to be sure that 
+
 ```
-cmake test
+cd ${Build-folder-path}/build/bin
+./tests
 ```
 
-## Architectural notes
+## Running utility
 
-Product is base on the Pipeline design patter, where each logics operation
+```
+cd ${Build-folder-path}/build/bin
+./SignatureGeneratorApplication --help
+```
 
+## Tested with
 
-## Built With
-????
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
+* MacOS Catalina 10.15.1
+* cmake 3.15.5
+* AppleClang 11
+* Boost 1.71.0
+* O2 optimisation flags
+* Address, thread and memory sanitizers
 
+## Supporting platforms/tools
 
-## Authors
+* Unix OSs (Mac OS and Linux)
+* Clang or GCC with C++14 support
 
+## Known issues
 
+### Multithreading support
+For some platforms `std::thread::hardware_concurrency` can return `0` and reduce benefits of multi-CPU/core systems.
 
-## License
+### Multithreading advantage
+Current design focused on the processing a big amount of chunks and has an ouful performance 
+for processing just couple of big chunks.
 
-This project is not licensed
+### Chunks minimal size
+Minimal chunk size is 1 KiByte, which allows to guaranty mapping entire output file to the memory.
+
+### Chunks maximum size
+Maximum chunk size is not limited by UI, but limited by available RAM.
+It can cause a crash due to luck of memory, depends on the memory map implementation and platform.
+
+### Input file is less than chunks can cause crash or freeze
+Due to Boost limitation passing files less than minimal chunk size (1KiByte) is nor valid for utility.
+Tests now are working for 3 bytes files, but it's a risk zone.
+
+### Microsoft VC compiler
+cmake file are using GBU compiler flags and need to be updated for VC compilers.
+
+Note: MinGW can work well, but has not been tested.
+
+### Embedded support
+Utility is focused on the server hardware with more than 1GB RAM and several CPUs/Cores.
+Using utility with a less of RAM and in a one-thread enviroment is possible, but not optimal by design.
+
+### Luck of exception OOP hierarchy
+Using `std::excpetion` saves some development time, but need to be refactored in future.
+
+#### Tests clean-up
+E2E tests creates several files (up to 20 GB disk space) and are not removed after testing.
+
+### Components are not implemented in own namespace
+It's preferable to move components to own namespace, but on the next stage of development.
+
+## Author and License
+
+This project is under copyright and owned by Elisey Zamakhov, eliseyzamahov@gmail.com.
