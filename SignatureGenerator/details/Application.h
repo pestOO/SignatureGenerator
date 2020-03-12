@@ -14,7 +14,7 @@
 #include <memory>
 
 //TBD(EZ): remove relative includes by updating cmake
-#include "../../libSignatureGenerator/Library.h"
+#include "libSignatureGenerator/Library.h"
 
 /**
  * @brief The Application class
