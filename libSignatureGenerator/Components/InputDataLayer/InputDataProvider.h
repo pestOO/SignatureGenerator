@@ -13,7 +13,6 @@
 
 #include <cinttypes>
 #include <memory>
-#include <queue>
 #include <string>
 
 // TODO(EZ): use Pimpl to hide all implementation in other file or move to utilities
@@ -21,77 +20,76 @@
 #include <boost/interprocess/sync/file_lock.hpp>
 
 #include "Utilities/CommonTypes.h"
+#include "InputDataLayer/details/InDataListener.h"
 
 //forward declaration
 class MessageQueue;
 
 /**
+ * Class abstracts input data caching and validation.
+ * Facade object for all input data processing.
  *
- * Flow: get file chunk next_chunk_offset_ -> read chunk
- *
- * @todo(EZ): we can create a memory pool and store data in the pool
- * @todo(EZ) extract interface and implementation to separate files
+ * @todo: Later on we can create a memory pool and store data in the pool
  */
 class InputDataProvider {
  public:
-  // -- Support structures and listener of this data --
+
   /**
-   * to move in other file
+   * Constructs input data layer component.
+   * @param file_path of the file to be read
+   * @param chunk_size size of the chunks to be splitter
+   * @param message_queue for posting Jobs
    */
-  class DataChunk {
-   public:
-    virtual void *GetData() const = 0;
-    virtual ChunkSizeType GetSize() const = 0;
-    virtual UniqueId GetUniqueId() const = 0;
-    virtual ~DataChunk() = default;
-  };
-  // -- Typedef and using --
-  using DataChunkSptr = std::shared_ptr<DataChunk>;
-  using OffsetType = std::uint64_t;
+  InputDataProvider(std::string file_path, ChunkSize chunk_size, MessageQueue &message_queue);
 
-  class DataAvailableListener {
-   public:
-    virtual void OnDataAvailable(const DataChunkSptr&) = 0;
-  };
-  using DataAvailableListenerSptr = std::shared_ptr<DataAvailableListener>;
-  using DataAvailableListenerWptr = std::weak_ptr<DataAvailableListener>;
+  using InDataListenerSptr = std::shared_ptr<InDataListener>;
+  using InDataListenerWptr = std::weak_ptr<InDataListener>;
   /**
-   * Connects
-   * @warning not thread-safe
+   * Connect one unique listener. Override previous listeners.
+   * @warning setter itself is not thread-safe.
    */
-  void SetConnectChunkDataListener(const DataAvailableListenerSptr& listener) {
-    on_data_available_signal_ = listener;
-  }
-
-  // -- Class members --
-  InputDataProvider(std::string file_path, ChunkSizeType chunk_size, MessageQueue &message_queue);
-
-  void RunFirstJob();
+  void SetConnectChunkDataListener(const InDataListenerSptr &listener);
 
   /**
+   * Starts several jobs with reading chunks from the inpout file.
    *
+   * @param jobs_amount to be posted to the queue one by one.
+   * @return true if more chunks for processing is available, otherwise false.
    */
-  bool PostJob(const unsigned jobs_amount);
+  bool RequestChunkRead(unsigned jobs_amount);
 
-  std::uintmax_t  GetFileSize() const;
+  /**
+   * @return size of the input file in bytes.
+   */
+  std::uintmax_t GetFileSize() const;
+
+  /**
+   * Determines sizew of the output file base on the size of the input file,
+   * chunk size and given chunk
+   * @param chunks_output_size
+   * @return size of the output file in bytes.
+   *
+   * @todo move to utilities due to mix of layer responsibilities
+   */
+  std::uintmax_t PredictOutFileSize(int chunks_output_size) const;
 
  private:
-  DataChunkSptr GenerateNextDataChunk(const UniqueId unique_id, const OffsetType offset);
+  void PostMQJob(NumericOrder numeric_order, Offset offset);
 
- private:
+  InDataChunkSptr GenerateNextDataChunk(const NumericOrder numeric_order, const Offset offset);
+
   // async working queue
   MessageQueue &message_queue_;
-  //File reading information
+  // File reading information
   const std::string file_path_;
-  const ChunkSizeType chunk_size_;
+  const ChunkSize chunk_size_;
   const std::uintmax_t file_size_;
- private:
   // blocks other process to change the file
   boost::interprocess::file_lock file_lock_;
   // The next chunk info
-  std::atomic<UniqueId> next_chunk_id_ = ATOMIC_VAR_INIT(0u);
+  std::atomic<NumericOrder> next_chunk_id_ = ATOMIC_VAR_INIT(0u);
   // data consumer
-  DataAvailableListenerWptr on_data_available_signal_;
+  InDataListenerWptr on_data_available_listener_;
 };
 
 #endif  //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_INPUTDATALAYER_INPUTDATAPROVIDER_H_
