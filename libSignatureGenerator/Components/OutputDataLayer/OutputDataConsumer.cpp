@@ -12,11 +12,8 @@
 #include "Utilities/MessageQueue.h"
 
 OutputDataConsumer::OutputDataConsumer(const std::string &file_path,
-                                       const std::size_t file_size,
-                                       MessageQueue &message_queue)
-    : file_path_(file_path),
-      message_queue_(message_queue) {
-
+                                       const std::size_t file_size)
+    : file_path_(file_path) {
   boost::iostreams::mapped_file_params params;
   params.path = file_path;
   params.flags = boost::iostreams::mapped_file_base::readwrite;
@@ -36,25 +33,18 @@ OutputDataConsumer::OutputDataConsumer(const std::string &file_path,
   };
 }
 
-OutputDataConsumer::~OutputDataConsumer() {
-//  mapped_file_.flush();
-//  MappedFile::shrink_to_fit(file_path_.c_str());
-}
-
-void OutputDataConsumer::OnDataAvailable(const SignatureGenerator::ChunkSignatureSptr &signature_sptr) {
-  // We do nto post job in a queue, but do it in-place, because writing several bytes to memory is very fast
+void OutputDataConsumer::OnDataAvailable(const ChunkSignatureSptr &signature_sptr) {
+  // We do not post job in a queue, but do it in-place, because writing several bytes to memory is very fast
   assert(!!signature_sptr && "received empty signature pointer");
+  assert(signature_sptr->GetSize() < 100 &&
+      "signature size has grown, please reconsider loading output file partially");
   WriteSignatureToFile(*signature_sptr);
 }
 
-void OutputDataConsumer::WriteSignatureToFile(const SignatureGenerator::ChunkSignature &data) {
-  const auto signature = data.GetSignature();
-  const auto signature_size = data.GetSignatureSize();
-  const auto offset = data.GetUniqueId() * signature_size;
-
-  assert(mapped_file_.size() >= signature_size && "signature_size does not fit region");
-
-  std::memcpy(mapped_file_.data() + offset, &signature, signature_size);
+void OutputDataConsumer::WriteSignatureToFile(const ChunkSignature &data) {
+  const auto offset = data.GetNumericOrder() * data.GetSize();
+  assert(mapped_file_.size() >= (data.GetSize() + offset) && "signature_size does not fit mapped region");
+  std::memcpy(mapped_file_.data() + offset, data.GetSignatureData(), data.GetSize());
 }
 
 
