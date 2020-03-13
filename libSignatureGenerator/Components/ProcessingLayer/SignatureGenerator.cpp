@@ -14,36 +14,24 @@
 
 #include "Utilities/MessageQueue.h"
 
-class ChunkSignatureImpl : public SignatureGenerator::ChunkSignature {
- public:
-  ChunkSignatureImpl(const InputDataProvider::DataChunk &chunk)
-      : unique_id_(chunk.GetUniqueId()) {
-    boost::crc_32_type crc;
-    crc.process_bytes(chunk.GetData(), chunk.GetSize());
-    signature_ = crc.checksum();
-  }
-  SignatureGenerator::SignatureType GetSignature() const override {
-    return signature_;
-  }
-  UniqueId GetUniqueId() const override {
-    return unique_id_;
-  }
-  size_t GetSignatureSize() const override {
-    return sizeof(signature_);
-  }
- private:
-  SignatureGenerator::SignatureType signature_;
-  UniqueId unique_id_;
-};
+#include "details/ChunkSignatureImpl.h"
 
 SignatureGenerator::SignatureGenerator(MessageQueue &message_queue)
     : message_queue_(message_queue) {}
 
-void SignatureGenerator::OnDataAvailable(const InputDataProvider::DataChunkSptr &data_chunk_sptr) {
+void SignatureGenerator::OnDataAvailable(const InDataChunkSptr &data_chunk_sptr) {
   message_queue_.PostJob(
       [data_chunk_sptr, this]() {
-        if (auto listener = on_data_available_signal_.lock())
-          listener->OnDataAvailable(std::make_shared<ChunkSignatureImpl>(*data_chunk_sptr));
+        const auto signatureDataSptr = std::make_shared<ChunkSignatureImpl>(*data_chunk_sptr);
+        if (auto listener = on_data_available_listener_.lock())
+          listener->OnDataAvailable(signatureDataSptr);
         return true;
       });
+}
+void SignatureGenerator::SetConnectChunkDataListener(const SignatureGenerator::DataAvailableListenerSptr &listener) {
+  on_data_available_listener_ = listener;
+}
+
+std::size_t SignatureGenerator::GetSignatureSize() {
+  return ChunkSignatureImpl::GetSignatureSize();
 }

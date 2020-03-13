@@ -12,57 +12,50 @@
 #pragma once
 
 #include <cinttypes>
-
-#include <boost/crc.hpp>
+#include <memory>
 
 #include "Utilities/CommonTypes.h"
+#include "details/ChunkSignature.h"
+#include "details/DataAvailableListener.h"
 #include "InputDataLayer/InputDataProvider.h"
 
 //forward declaration
 class MessageQueue;
 
 /**
+ * Class abstracts signature generation
+ * Facade object for all read data calculation.
  *
- * @todo extract InputDataProvider listener and remove dependecey from it
+ * @implements InDataListener to be able to process data as soon as it available
  */
- class SignatureGenerator : public InputDataProvider::DataAvailableListener {
+class SignatureGenerator : public InDataListener {
  public:
-  using SignatureType = boost::crc_32_type::value_type;
-  // -- Support structures and listener of this data --
   /**
+   * Constructs processing data layer component.
    */
-  class ChunkSignature {
-   public:
-    virtual SignatureType GetSignature() const = 0;
-    virtual UniqueId GetUniqueId() const = 0;
-    virtual std::size_t GetSignatureSize() const = 0;
-    virtual ~ChunkSignature() = default;
-  };
-  // -- Typedef and using --
-  using ChunkSignatureSptr = std::shared_ptr<ChunkSignature>;
+  explicit SignatureGenerator(MessageQueue &message_queue);
 
-  class DataAvailableListener {
-   public:
-    virtual void OnDataAvailable(const ChunkSignatureSptr&) = 0;
-  };
   using DataAvailableListenerSptr = std::shared_ptr<DataAvailableListener>;
   using DataAvailableListenerWptr = std::weak_ptr<DataAvailableListener>;
   /**
-   * Connects
+   * Connect one unique listener.
+   * Override previous listeners.
    * @warning not thread-safe
    */
-  void SetConnectChunkDataListener(const DataAvailableListenerSptr& listener) {
-    on_data_available_signal_ = listener;
-  }
-  private:
-   void OnDataAvailable(const InputDataProvider::DataChunkSptr &sptr) override;
-  public:
-   // -- Class members --
-  explicit SignatureGenerator(MessageQueue &message_queue);
+  void SetConnectChunkDataListener(const DataAvailableListenerSptr &listener);
 
+  /**
+   * @return size of generated signatures
+   */
+  static std::size_t GetSignatureSize();
  private:
+  /**
+    * @copydoc InDataListener::OnDataAvailable(InDataChunkSptr);
+    */
+  void OnDataAvailable(const InDataChunkSptr &sptr) override;
+
   MessageQueue &message_queue_;
-  DataAvailableListenerWptr on_data_available_signal_;
+  DataAvailableListenerWptr on_data_available_listener_;
 };
 
 #endif  //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_DETAILS_PROCESSINGLAYER_SIGNATUREGENERATOR_H_
