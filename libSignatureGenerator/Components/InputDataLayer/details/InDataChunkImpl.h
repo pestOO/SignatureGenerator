@@ -26,12 +26,12 @@ class InDataChunkImpl : public InDataChunk {
   /**
    * Constructs new data chunk and pre-load all data from the disk to the memory.
    * @param numeric_order chunk order in the input file
-   * @param file_path path tot he file for readign chunk
-   * @param offset of the cunk in the file
-   * @param chunk_size to be read in memeory
+   * @param mapped_file file mapped to memory, but not loaded
+   * @param offset of the chunk in the file
+   * @param chunk_size to be read in memory
    */
   InDataChunkImpl(const NumericOrder numeric_order,
-                  const std::string &file_path,
+                  boost::interprocess::file_mapping &mapped_file,
                   const Offset offset,
                   const ChunkSize chunk_size);
 
@@ -46,14 +46,14 @@ class InDataChunkImpl : public InDataChunk {
   ChunkSize GetSize() const override;
 
   /**
-   * @copydoc InDataChunk::GetUniqueId()
+   * @copydoc InDataChunk::GetNumericOrder()
    */
   NumericOrder GetUniqueId() const override;
 
  private:
   const NumericOrder numeric_order_;
-  boost::interprocess::file_mapping mapped_file;
-  boost::interprocess::mapped_region region;
+  boost::interprocess::file_mapping& mapped_file_;
+  boost::interprocess::mapped_region mapped_region_;
 };
 
 #endif //SIGNATUREGENERATOR_LIBSIGNATUREGENERATOR_COMPONENTS_INPUTDATALAYER_INDATACHUNKIMPL_H_

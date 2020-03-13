@@ -18,6 +18,7 @@
 // TODO(EZ): use Pimpl to hide all implementation in other file or move to utilities
 #define BOOST_DATE_TIME_NO_LIB
 #include <boost/interprocess/sync/file_lock.hpp>
+#include <boost/interprocess/file_mapping.hpp>
 
 #include "Utilities/CommonTypes.h"
 #include "InputDataLayer/details/InDataListener.h"
@@ -27,13 +28,12 @@ class MessageQueue;
 
 /**
  * Class abstracts input data caching and validation.
- * Facade object for all input data processing.
+ * Facade object for all input data accessing.
  *
  * @todo: Later on we can create a memory pool and store data in the pool
  */
 class InputDataProvider {
  public:
-
   /**
    * Constructs input data layer component.
    * @param file_path of the file to be read
@@ -45,7 +45,8 @@ class InputDataProvider {
   using InDataListenerSptr = std::shared_ptr<InDataListener>;
   using InDataListenerWptr = std::weak_ptr<InDataListener>;
   /**
-   * Connect one unique listener. Override previous listeners.
+   * Connect one unique listener.
+   * Override previous listeners.
    * @warning setter itself is not thread-safe.
    */
   void SetConnectChunkDataListener(const InDataListenerSptr &listener);
@@ -64,7 +65,7 @@ class InputDataProvider {
   std::uintmax_t GetFileSize() const;
 
   /**
-   * Determines sizew of the output file base on the size of the input file,
+   * Determines size of the output file base on the size of the input file,
    * chunk size and given chunk
    * @param chunks_output_size
    * @return size of the output file in bytes.
@@ -86,6 +87,8 @@ class InputDataProvider {
   const std::uintmax_t file_size_;
   // blocks other process to change the file
   boost::interprocess::file_lock file_lock_;
+  // input file initial mapping
+  boost::interprocess::file_mapping mapped_file_;
   // The next chunk info
   std::atomic<NumericOrder> next_chunk_id_ = ATOMIC_VAR_INIT(0u);
   // data consumer

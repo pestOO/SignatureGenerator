@@ -10,24 +10,22 @@
 #include "InDataChunkImpl.h"
 
 InDataChunkImpl::InDataChunkImpl(const NumericOrder numeric_order,
-                                 const std::string &file_path,
+                                 boost::interprocess::file_mapping &mapped_file,
                                  const Offset offset,
                                  const ChunkSize chunk_size)
     : numeric_order_(numeric_order),
-    // TODO(EZ): move to the facade class, it can save couple of CPU cycles
-      mapped_file(file_path.c_str(),
-                  boost::interprocess::read_only),
-      region(mapped_file,
-             boost::interprocess::read_only,
-             offset, chunk_size) {
+      mapped_file_(mapped_file),
+      mapped_region_(mapped_file_,
+                     boost::interprocess::read_only,
+                     offset, chunk_size) {
 }
 
 void *InDataChunkImpl::GetData() const {
-  return region.get_address();
+  return mapped_region_.get_address();
 }
 
 ChunkSize InDataChunkImpl::GetSize() const {
-  return region.get_size();
+  return mapped_region_.get_size();
 }
 
 NumericOrder InDataChunkImpl::GetUniqueId() const {

@@ -24,7 +24,9 @@ InputDataProvider::InputDataProvider(std::string file_path,
       file_path_(std::move(file_path)),
       chunk_size_(chunk_size),
       file_size_(boost::filesystem::file_size(file_path_)),
-      file_lock_(file_path_.c_str()) {
+      file_lock_(file_path_.c_str()),
+      mapped_file_(file_path_.c_str(),
+                  boost::interprocess::read_only){
 
   assert(chunk_size_ > 0 && "chunk size could not be empty");
 
@@ -74,7 +76,7 @@ InDataChunkSptr InputDataProvider::GenerateNextDataChunk(const NumericOrder nume
   // We can create the last chunk with a size less than chunk_size_
   const bool is_last_chunk = (offset + chunk_size_) >= GetFileSize();
   const auto real_chunk_size = is_last_chunk ? (GetFileSize() - offset) : chunk_size_;
-  return std::make_shared<InDataChunkImpl>(numeric_order, file_path_, offset, real_chunk_size);
+  return std::make_shared<InDataChunkImpl>(numeric_order, mapped_file_, offset, real_chunk_size);
 }
 
 std::uintmax_t InputDataProvider::GetFileSize() const {
