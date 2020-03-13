@@ -50,7 +50,7 @@ class Library {
    *
    * @warning "What" information of the thrown exception couldn't be used for multi-language UI
    */
-  void run(const std::string &input_file, const std::string &out_file, const std::uint32_t chunk_size);
+  void run(const std::string &input_file, const std::string &out_file, const std::uint64_t chunk_size);
 
  private:
   std::shared_ptr<MessageQueue> message_queue_;
