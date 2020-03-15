@@ -1,8 +1,8 @@
 # File signatures console application and library
 
-Utility generates a file with a list of binary signatures of the input file chunks.
+Utility generates a file with a list of binary signatures of input file chunks.
 
-:warning: Signature is an abstract term, which accumulates hash and checksum algorithms.
+:warning: **Signature** is an abstract term, which accumulates hash and checksum algorithms.
 
 ## Getting Started
 
@@ -72,8 +72,8 @@ cd ${Build-folder-path}/build/bin
 For some platforms `std::thread::hardware_concurrency` can return `0` and reduce benefits of multi-CPU/core systems.
 
 ### Multithreading advantage
-Current design focused on the processing a big amount of chunks and has an ouful performance 
-for processing just couple of big chunks.
+Current design focused on the processing a big amount of chunks and has an poor performance 
+for processing just a couple of big chunks.
 
 ### Chunks minimal size
 Minimal chunk size is 1 KiByte, which allows to guaranty mapping entire output file to the memory.
@@ -93,10 +93,10 @@ Note: MinGW can work well, but has not been tested.
 
 ### Embedded support
 Utility is focused on the server hardware with more than 1GB RAM and several CPUs/Cores.
-Using utility with a less of RAM and in a one-thread enviroment is possible, but not optimal by design.
+Using utility with a less of RAM and in a one-thread environment is possible, but not optimal by design.
 
-### Luck of exception OOP hierarchy
-Using `std::excpetion` saves some development time, but need to be refactored in future.
+### Non-OOP way of exceptions handling
+Using `std` and `boost` `exceptions` saved some development time, but need to be refactored in future.
 
 #### Tests clean-up
 E2E tests creates several files (up to 20 GB disk space) and are not removed after testing.

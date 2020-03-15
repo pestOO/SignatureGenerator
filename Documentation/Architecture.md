@@ -39,7 +39,7 @@ List of the following quality goals is not final and full, but indicates the mai
 
 System need to use advantages of multi-threading and multi-processor systems, as well server and modern desktop hardware.
 
-**Flexibity**
+**Flexibility**
 
 Supporting efficiency of the system is not possible without tasks execution flexibility.
 
