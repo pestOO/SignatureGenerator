@@ -35,33 +35,31 @@ Top quality Goals
 
 List of the following quality goals is not final and full, but indicates the main aspect of the design and implementation: 
 
-** Efficiency ** 
+**Efficiency**
+
 System need to use advantages of multi-threading and multi-processor systems, as well server and modern desktop hardware.
 
-** Configurability **
-Supporting efficiency of the system is not possible without ability to configure the following system and hardware
-dependent aspects:
+**Flexibity**
 
-* Amount of reading thread
-** It could depends on the performance of the hard drives (HDD, SDD, virtual/network drive) and their configurations (serial, parallel or others).
-* Amount of hash-signatures threads
-** This threads amount mostly depends on the amount of hardware/virtual CPUs
-** IO reading or writing could be a bottleneck, and amount of threads (and memory usage) could be reduces without performance regression
-** Size of the chunks and hashing algorithm can also affect balance between hash threads and IO threads.
-* Amount of write threads
-** Writing to one file in C++ standard library, as well as most of of 3rd-party libraries, is not thread-safe
- See, http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2760.htm
-** Could be implemented in the version with custom
-* Hash function
-** Using different software or hardware hashing algorithms can boost system performance and utilize hardware resources more efficient
-** User shall be able to change hashing function
+Supporting efficiency of the system is not possible without tasks execution flexibility.
 
-** Platform independent **
+* Reading tasks.
+    * Read speed can depends on the performance of the hard drives (HDD, SDD, virtual/network drive) and their configurations (serial, parallel or others).
+* Signatures generating tasks.
+    * This tasks performance mostly depends on the amount of hardware/virtual CPUs.
+    * Size of  chunks and hashing algorithm can affect performance.
+    * Using different software or hardware hashing algorithms.
+* Writing tasks.
+    * Write speed can depends on the performance of the hard drives (HDD, SDD, virtual/network drive) and their configurations (serial, parallel or others).
+
+**Platform independence**
+
 Base on the fuzziness of the hardware environment and operations system requirements, the target system need 
 to be written on the popular cross-platform low-level language with a usage of limited amount of cross-platform 
 3rd-party libraries.
 
-** Extensibility **
+**Extensibility**
+
 Base on the unsureness of the final businesses goals, the fuzziness of the hardware environment and functional requirements
 (hash function) system need to be design in a aggressively extensible way.
 Together with Configurability system cam also achieve platform independence, 
@@ -72,17 +70,13 @@ Stakeholders
 ------------
 The following list of stakeholders is vague, but need to be taking into account on the next iteration of requirements gathering.
 
-+-------------------------+---------------------------+---------------------------+
 | Role                    | Contact                   | Expectations              |
-+=========================+===========================+===========================+
+|-------------------------|---------------------------|---------------------------|
 | Development Engineers   | Unknown                   | Known and up-to-date architectural and design documentation. |
-+-------------------------+---------------------------+---------------------------+
 | Test Engineers          | Unknown                   | Ability to test system end-to-end and components in isolation. |
-+-------------------------+---------------------------+---------------------------+
 | Integration Engineers   | Unknown                   | Clear configuration documentation and extension APIs. |
-+-------------------------+---------------------------+---------------------------+
 | Users                   | Unknown                   | Simple user interface, clear status information. |
-+-------------------------+---------------------------+---------------------------+
+-----------------------------------------------------------------------------------
 
 Architecture Constraints and limitations
 ========================================
@@ -140,37 +134,32 @@ System is slitted to 3 layers and one Utility component:
 * Output dat writing
 * Utilities
 
-+-----------------------+-----------------------------------------------+
 | **Name**              | **Responsibility**                            |
-+=======================+===============================================+
+|-----------------------|-----------------------------------------------|
 | *Input Data Layer*    |  *Abstracts input data caching and validation*  |
-+-----------------------+-----------------------------------------------+
 | *Output Data Layer*   |  *Abstracts output data delivery and aggregation* |
-+-----------------------+-----------------------------------------------+
-| *Processing Layer *   |  *Responsible for generating signatures*      |
-+-----------------------+-----------------------------------------------+
+| *Processing Layer*    |  *Responsible for generating signatures*      |
 | *Utilities*           |  *Set of commonly used primitive and types*   |
-+-----------------------+-----------------------------------------------+
 
 Runtime View
 ============
 
-TODO(EZamakhov): Detailed description is not suitable for this phase of the product development.
+:x: Detailed description is not suitable for this phase of the product development.
 
 Deployment View
 ===============
 
-TODO(EZamakhov): Detailed description is not suitable for this phase of the product development.
+:x: Detailed description is not suitable for this phase of the product development.
 
 Cross-cutting Concepts
 ======================
 
-TODO(EZamakhov): Detailed description is not suitable for this phase of the product development.
+:x: Detailed description is not suitable for this phase of the product development.
 
 Design Decisions
 ================
 
-TODO(EZamakhov): Detailed description is not suitable for this phase of the product development.
+:x: Detailed description is not suitable for this phase of the product development.
 
 Quality Requirements
 ====================
@@ -178,13 +167,12 @@ Quality Requirements
 Risks, Concerns and Technical Debts
 =========================
 
-TODO(EZamakhov): Detailed description is not suitable for this phase of the product development.
+:x: Detailed description is not suitable for this phase of the product development.
 
 Glossary
 ========
 
-+-----------------------------------+-----------------------------------+
 | Term                              | Definition                        |
-+===================================+===================================+
+|-----------------------------------|-----------------------------------|
 | Signature                         | Signature is an abstract term, which accumulates hash and checksum algorithms. |
-+-----------------------------------+-----------------------------------+
+-------------------------------------------------------------------------
