@@ -31,7 +31,7 @@ install boost libraries
 
 ```
 cd ${Project folder}
-cmake . -B ${Build-folder-path}
+cmake . -DCMAKE_BUILD_TYPE=Release -B ${Build-folder-path}
 cd ${Build-folder-path}
 make
 ```
